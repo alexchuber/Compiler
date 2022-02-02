@@ -39,8 +39,7 @@ public class Token implements IToken {
     {
         if(kind == Kind.INT_LIT)
             return Integer.parseInt(getText());
-        else
-            // this is a bug!
+        //else this is a bug!
     }
 
     //returns the float value represented by the characters of this token if kind is FLOAT_LIT
@@ -48,8 +47,7 @@ public class Token implements IToken {
     {
         if(kind == Kind.FLOAT_LIT)
             return Float.parseFloat(getText());
-        else
-        // this is a bug!
+        //else this is a bug!
     }
 
     //returns the boolean value represented by the characters of this token if kind is BOOLEAN_LIT
@@ -57,19 +55,15 @@ public class Token implements IToken {
     {
         if(kind == Kind.BOOLEAN_LIT)
             return Boolean.parseBoolean(getText());
-        else
-        // this is a bug!
+        //else this is a bug!
     }
 
     //returns the String represented by the characters of this token if kind is STRING_LIT
     //The delimiters should be removed and escape sequences replaced by the characters they represent.
     @Override public String getStringValue()
     {
-        if(kind == Kind.STRING_LIT)
-        {
+        //if(kind == Kind.STRING_LIT)
             //return stuff
-        }
-        else
-            // this is a bug!
+        //else this is a bug!
     }
 }
