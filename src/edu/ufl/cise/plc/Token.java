@@ -37,33 +37,69 @@ public class Token implements IToken {
     //returns the int value represented by the characters of this token if kind is INT_LIT
     @Override public int getIntValue()
     {
-        if(kind == Kind.INT_LIT)
-            return Integer.parseInt(getText());
-        //else this is a bug!
+        // This would result in a bug
+        if (kind != Kind.INT_LIT)
+            return -1;
+        return Integer.parseInt(getText());
     }
 
     //returns the float value represented by the characters of this token if kind is FLOAT_LIT
     @Override public float getFloatValue()
     {
-        if(kind == Kind.FLOAT_LIT)
-            return Float.parseFloat(getText());
-        //else this is a bug!
+        // This would result in a bug
+        if(kind != Kind.FLOAT_LIT)
+            return -1;
+        return Float.parseFloat(getText());
     }
 
     //returns the boolean value represented by the characters of this token if kind is BOOLEAN_LIT
     @Override public boolean getBooleanValue()
     {
-        if(kind == Kind.BOOLEAN_LIT)
-            return Boolean.parseBoolean(getText());
-        //else this is a bug!
+        // This would result in a bug
+        if(kind != Kind.BOOLEAN_LIT)
+            return false;
+        return Boolean.parseBoolean(getText());
     }
 
     //returns the String represented by the characters of this token if kind is STRING_LIT
     //The delimiters should be removed and escape sequences replaced by the characters they represent.
     @Override public String getStringValue()
     {
-        //if(kind == Kind.STRING_LIT)
-            //return stuff
-        //else this is a bug!
+        // This would result in a bug
+        if(kind != Kind.STRING_LIT)
+            return "";
+
+        String stringval = "";
+        int i = 1;
+        while (i < getText().length() - 1)
+        {
+            char current = getText().charAt(i);
+            // If there's a possible unhandled \
+            if(current == '\\' && i < getText().length() - 2)
+            {
+                // Look at char that follows \
+                i++;
+                char next = getText().charAt(i);
+                switch (next)
+                {
+                    case 'b' : stringval += '\b'; break;
+                    case 't' : stringval += '\t'; break;
+                    case 'n' : stringval += '\n'; break;
+                    case 'f' : stringval += '\f'; break;
+                    case 'r' : stringval += '\r'; break;
+                    case '\"' : stringval += '\"'; break;    //maybe
+                    case '\'' : stringval += '\''; break;    //maybe
+                    case '\\' : stringval += '\\'; break;    //maybe
+                    default : stringval += (current + next); break;
+                }
+            }
+            // If just a regular ol' char
+            else
+            {
+                stringval += current;
+            }
+            i++;
+        }
+        return stringval;
     }
 }
