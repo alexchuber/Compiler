@@ -288,10 +288,12 @@ public class Lexer implements ILexer {
                 // Consume an extra character to make sure it's ignored
                 scanNextChar();
 
-            // Edge case: If we find a newline
+            // Edge case: If we find a newline (since we're supporting multi-line strings in our language)
             if(peekNextChar() == '\n')
-                // Increase line count
+            {
                 currentLine++;
+                currentCol = -1;        // Edge case: Make -1 so that next call to scanNextChar() will increment it to 0
+            }
 
             scanNextChar();
         }
