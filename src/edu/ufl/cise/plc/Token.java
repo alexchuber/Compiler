@@ -7,8 +7,7 @@ public class Token implements IToken {
     final String text;
     final SourceLocation sourcelocation;
 
-    // Default constructor-- IntelliJ made it for me.
-    // I don't know if we'll stick with it-- we might not want to pass in a SourceLocation, but instead int line & int col?
+    // Constructor
     public Token(Kind kind, String text, SourceLocation sourcelocation) {
         this.kind = kind;
         this.text = text;
@@ -74,6 +73,7 @@ public class Token implements IToken {
         while (i < getText().length() - 1)
         {
             char current = getText().charAt(i);
+
             // If there's a possible unhandled \
             if(current == '\\' && i < getText().length() - 2)
             {
@@ -93,7 +93,8 @@ public class Token implements IToken {
                     default : stringval += (current + next); break;
                 }
             }
-            // If just a regular ol' char
+
+            // If just a regular ol' char....
             else
             {
                 stringval += current;
