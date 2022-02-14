@@ -62,23 +62,32 @@ public class Parser implements IParser {
         return lexer.peek();
     }
 
-    // Checks if current token matches the parameter AND THEN consumes it, if so
+    // Checks if current token matches any one of the parameters (kinds) AND THEN consumes it, if so
     // Returns false if not
-    private boolean match(Kind kind) throws PLCException {
-        if (kind == peek().getKind()) {
-            advance();
-            return true;
+    private boolean match(Kind... kinds) throws PLCException {
+        for (Kind kind : kinds) {
+            if (check(kind)) {
+                advance();
+                return true;
+            }
         }
         return false;
     }
 
-    //TODO: Might need this previous function; to implement it, might need to add a previous() function to Lexer. See if you can do stuff without it for now?
+    // Checks if current token kind matches the parameter (kind)
+    // Returns false if not
+    private boolean check(Kind kind) throws PLCException {
+        if (isAtEnd()) return false;
+        return peek().getKind() == kind;
+    }
 
     // Checks if current token is the last "real" token in the file
     // Returns false if not
     private boolean isAtEnd() throws PLCException {
         return peek().getKind() == Kind.EOF;
     }
+
+    //TODO: Might need a previous() function; to implement it, might need to add a previous() function to Lexer. See if you can do stuff without it for now?
 
     // ========================================== //
     // ============= AST GENERATORS ============= //
