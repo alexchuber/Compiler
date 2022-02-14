@@ -71,7 +71,7 @@ public class Lexer implements ILexer {
     // ========== CONSTRUCTOR ========== //
     // ================================= //
 
-    public Lexer(String input)
+    Lexer(String input)
     {
         this.input = input;
         this.tokens = new ArrayList<>();

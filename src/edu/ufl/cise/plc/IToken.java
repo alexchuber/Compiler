@@ -49,7 +49,7 @@ public interface IToken {
 		LARROW, // '<-'
 		KW_VOID, // 'void'
 		RETURN,// '^'
-		EOF, // used as sentinal, does not correspond to input
+		EOF, // used as sentinel, does not correspond to input
 		ERROR, // use to avoid exceptions if scanning all input at once
 	}
 	
