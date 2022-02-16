@@ -124,6 +124,7 @@ class Assignment2StarterTests {
 		show(ast);
 		assertThat("", ast, instanceOf(UnaryExpr.class));
 		assertEquals(BANG, ((UnaryExpr) ast).getOp().getKind());
+		//assertEquals("!", ((UnaryExpr) ast).getOp().getText());
 		Expr var0 = ((UnaryExpr) ast).getExpr();
 		assertThat("", var0, instanceOf(IdentExpr.class));
 		assertEquals("var", var0.getText());
