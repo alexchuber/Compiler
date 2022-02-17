@@ -18,9 +18,7 @@ public class Parser implements IParser {
     // Stores the first token of the current phrase we're working on
     IToken token;
 
-    // TODO: Do we need to store all the ASTs? How do we combine them into one?
-    // Stores AST nodes
-    ArrayList<ASTNode> asts;
+    // TODO: Storage for all AST nodes?
 
 
     // ================================= //
@@ -28,68 +26,61 @@ public class Parser implements IParser {
     // ================================= //
 
     // Constructs the parser and a lexer instance
-    Parser(String input)
+    public Parser(String input)
     {
         lexer = CompilerComponentFactory.getLexer(input);
         token = null;
-        asts = new ArrayList<>();
     }
 
 
     // ========================================== //
-    // ======ABSTRACT METHOD IMPLEMENTATIONS===== //
+    // ======== INTERFACE IMPLEMENTATIONS ======= //
     // ========================================== //
 
-    // TODO: Implement parse()
-    // Returns the AST
+    // Returns the (single expression's) AST TODO: parse() should eventually be able to handle more than one expression in the input
     @Override public ASTNode parse() throws PLCException
     {
-    	while(!isAtEnd())
-            asts.add(expression());
-
-        //i think we're only making one ast for now, so ill just return the first
-        return asts.get(0);
+    	return expression();
     }
 
     // ========================================== //
-    // ============ SCANNING HELPERS ============ //
+    // ============ CONSUMING TOKENS ============ //
     // ========================================== //
 
-    // TODO: Decide whether it should throw PLCException or LexicalException (since .next() throws)
-    // TODO: Decide if we even need this method, since it's just a wrapper for lexer's next() method
-    // Consumes current token
+    // Consumes current token, advancing to next token
     // Returns the next token
     private IToken advance() throws PLCException {
         return lexer.next();
     }
 
+    // Consumes current token, advancing to next token
+    // Used for terminals that MUST be there (hence the "void" return type & exception throw)
+    private void advanceIfMatches(Kind kind, String message) throws PLCException {
+        if (peekMatches(kind)) advance();
+        else throw new SyntaxException(message, token.getSourceLocation());
+    }
+
+    // ========================================== //
+    // ============ PEEKING AT TOKENS =========== //
+    // ========================================== //
+
     // Peeks at next token
     // Returns the next token
-    // TODO: Decide if we even need this method, since it's just a wrapper for lexer's peek() method
     private IToken peek() throws PLCException {
         return lexer.peek();
     }
 
-    // Checks if current token matches any one of the parameters (kinds) AND THEN consumes it, if so
+    // Checks if current token matches any one of the parameters (kinds)
     // Returns false if not
-    private boolean match(Kind... kinds) throws PLCException {
-        for (Kind kind : kinds) 
-        {
-            if (check(kind)) 
-            {
-                advance();
-                return true;
-            }
-        }
-        
-        return false;
-    }
+    private boolean peekMatches(Kind... kinds) throws PLCException {
+        if(isAtEnd()) return false;
 
-    // Checks if current token kind matches the parameter (kind)
-    // Returns false if not
-    private boolean check(Kind kind) throws PLCException {
-        if (isAtEnd()) return false;
-        return peek().getKind() == kind;
+        for (Kind kind : kinds)
+        {
+            if (peek().getKind() == kind) return true;
+        }
+
+        return false;
     }
 
     // Checks if current token is the last "real" token in the file
@@ -97,55 +88,45 @@ public class Parser implements IParser {
     private boolean isAtEnd() throws PLCException {
         return peek().getKind() == Kind.EOF;
     }
-    
-    private IToken matchOrError(Kind kind, String message) throws PLCException {
-        if (check(kind)) 
-        	return advance();
 
-        throw new SyntaxException(message, token.getSourceLocation());
-      }
     
     // ========================================== //
     // ============= AST GENERATORS ============= //
     // ========================================== //
     
     // PrimaryExpr ::= BOOLEAN_LIT  |  STRING_LIT  |  INT_LIT  |  FLOAT_LIT  |  IDENT  |  '(' Expr ')'
-    ASTNode primaryexpr() throws PLCException {
+    private ASTNode primaryexpr() throws PLCException
+    {
+        // Token MUST be one of these terminals
+        if (peekMatches(Kind.BOOLEAN_LIT)) return new BooleanLitExpr(advance());
+        if (peekMatches(Kind.STRING_LIT)) return new StringLitExpr(advance());
+        if (peekMatches(Kind.INT_LIT)) return new IntLitExpr(advance());
+        if (peekMatches(Kind.FLOAT_LIT)) return new FloatLitExpr(advance());
+        if (peekMatches(Kind.IDENT)) return new IdentExpr(advance());
 
-        IToken current = peek();
-        switch(current.getKind())
-        {
-            case BOOLEAN_LIT : advance(); return new BooleanLitExpr(current);
-            case STRING_LIT : advance(); return new StringLitExpr(current);
-            case INT_LIT : advance(); return new IntLitExpr(current);
-            case FLOAT_LIT : advance(); return new FloatLitExpr(current);
-            case IDENT : advance(); return new IdentExpr(current);
-            case LPAREN :
-                ASTNode expr = expression();
-                matchOrError(Kind.RPAREN, "Expected ')' after expression.");
-                return expr;
-            default :
-                throw new SyntaxException("Expected primary expression", current.getSourceLocation());
-        }
+        advanceIfMatches(Kind.LPAREN, "Expected '(' or primary expression.");
+        ASTNode expr = expression();
+        advanceIfMatches(Kind.RPAREN, "Expected ')' after expression.");
+        return expr;
     }
     
- // PixelSelector ::= '[' Expr ',' Expr ']'
-    ASTNode pixelselector() throws PLCException {
-          matchOrError(Kind.LSQUARE, "Expected '[' after expression.");
-          ASTNode expr =  expression();
-          matchOrError(Kind.COMMA, "Expected ',' after expression.");
-          ASTNode expr2 = expression();
-          matchOrError(Kind.RSQUARE, "Expected ']' after expression.");
-          return new PixelSelector(token, (Expr)expr, (Expr)expr2);
+    // PixelSelector ::= '[' Expr ',' Expr ']'
+    private ASTNode pixelselector() throws PLCException
+    {
+        advanceIfMatches(Kind.LSQUARE, "Expected '[' before expression.");
+        ASTNode expr =  expression();
+        advanceIfMatches(Kind.COMMA, "Expected ',' between expressions.");
+        ASTNode expr2 = expression();
+        advanceIfMatches(Kind.RSQUARE, "Expected ']' after expression.");
+        return new PixelSelector(token, (Expr)expr, (Expr)expr2);
     }
 
-
     // UnaryExprPostfix ::= PrimaryExpr PixelSelector?
-    ASTNode unaryexprpostfix() throws PLCException
+    private ASTNode unaryexprpostfix() throws PLCException
     {
     	ASTNode expr = primaryexpr();
 
-    	if(peek().getKind() == Kind.LSQUARE)
+    	if(peekMatches(Kind.LSQUARE))
     	{
     		ASTNode expr2 = pixelselector();
     		expr = new UnaryExprPostfix(token, (Expr)expr, (PixelSelector)expr2);
@@ -155,122 +136,113 @@ public class Parser implements IParser {
     }
 
     // UnaryExpr ::= ('!'|'-'| COLOR_OP | IMAGE_OP) UnaryExpr  |  UnaryExprPostfix
-    ASTNode unaryexpr() throws PLCException 
+    private ASTNode unaryexpr() throws PLCException
     {
-        IToken operator = peek();
-        if (match(Kind.BANG, Kind.MINUS, Kind.COLOR_OP, Kind.IMAGE_OP)) 
+        if (peekMatches(Kind.BANG, Kind.MINUS, Kind.COLOR_OP, Kind.IMAGE_OP))
         {
-          ASTNode right = unaryexpr();
-          return new UnaryExpr(token, operator, (Expr)right);
+            IToken operator = advance(); // Advance and store ! - COLOR_OP or IMAGE_OP
+            ASTNode right = unaryexpr();
+            return new UnaryExpr(token, operator, (Expr)right);
         }
        
         return unaryexprpostfix();
     }
 
-    
-    //should be correct structure 
     // MultiplicativeExpr ::= UnaryExpr (('*'|'/' | '%') UnaryExpr)*
-    ASTNode multiplicativeexpr() throws PLCException
+    private ASTNode multiplicativeexpr() throws PLCException
     {
     	ASTNode expr = unaryexpr();
 
-        IToken operator = peek();
-        while (match(Kind.TIMES, Kind.DIV, Kind.MOD)) 
+        while (peekMatches(Kind.TIMES, Kind.DIV, Kind.MOD))
         {
-          ASTNode right = unaryexpr();
-          expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
+            IToken operator = advance(); // Advance and store the * / or %
+            ASTNode right = unaryexpr();
+            expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
         }
 
         return expr;
     }
 
-    //should be correct structure 
     // AdditiveExpr ::= MultiplicativeExpr ( ('+'|'-') MultiplicativeExpr )*
-    ASTNode additiveexpr() throws PLCException 
+    private ASTNode additiveexpr() throws PLCException
     {
     	ASTNode expr = multiplicativeexpr();
 
-        IToken operator = peek();
-        while (match(Kind.PLUS, Kind.MINUS)) 
+        while (peekMatches(Kind.PLUS, Kind.MINUS))
         {
-          ASTNode right = multiplicativeexpr();
-          expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
+            IToken operator = advance(); // Advance and store the + or -
+            ASTNode right = multiplicativeexpr();
+            expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
         }
 
         return expr;
     }
 
-    //should be correct structure 
     // ComparisonExpr ::= AdditiveExpr ( ('<' | '>' | '==' | '!=' | '<=' | '>=') AdditiveExpr)*
-    ASTNode comparisonexpr() throws PLCException 
+    private ASTNode comparisonexpr() throws PLCException
     {
     	ASTNode expr = additiveexpr();
 
-        IToken operator = peek();
-        while (match(Kind.GT, Kind.LT, Kind.EQUALS, Kind.NOT_EQUALS, Kind.LE, Kind.GE)) 
+        while (peekMatches(Kind.GT, Kind.LT, Kind.EQUALS, Kind.NOT_EQUALS, Kind.LE, Kind.GE))
         {
-          ASTNode right = additiveexpr();
-          expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
+            IToken operator = advance(); // Advance and store the > < == != <= or >=
+            ASTNode right = additiveexpr();
+            expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
         }
 
         return expr;
     }
 
-    
     //LogicalAndExpr ::= ComparisonExpr ( '&'  ComparisonExpr)*
-    ASTNode logicalandexpr() throws PLCException 
+    private ASTNode logicalandexpr() throws PLCException
     {
     	ASTNode expr = comparisonexpr();
 
-        IToken operator = peek();
-        while (match(Kind.AND)) 
+        while (peekMatches(Kind.AND))
         {
-          ASTNode right = comparisonexpr();
-          expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
+            IToken operator = advance(); // Advance and store the & (this version didn't need changing, but i did for consistency)
+            ASTNode right = comparisonexpr();
+            expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
         }
 
         return expr;
-    	
     }
 
     // LogicalOrExpr ::= LogicalAndExpr ( '|' LogicalAndExpr)*
-    ASTNode logicalorexpr() throws PLCException 
+    private ASTNode logicalorexpr() throws PLCException
     {
     	ASTNode expr = logicalandexpr();
 
-        IToken operator = peek();
-        while (match(Kind.OR)) 
+        while (peekMatches(Kind.OR))
         {
-          ASTNode right = logicalandexpr();
-          expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
+            IToken operator = advance(); // Advance and store the | (this version didn't need changing, but i did for consistency)
+            ASTNode right = logicalandexpr();
+            expr = new BinaryExpr(token, (Expr)expr, operator, (Expr)right);
         }
 
         return expr;
     }
 
     // ConditionalExpr ::= 'if' '(' Expr ')' Expr 'else'  Expr 'fi'
-    ASTNode conditionalexpr() throws PLCException 
+    private ASTNode conditionalexpr() throws PLCException
     {
-        matchOrError(Kind.KW_IF, "Expected 'if' after expression.");
-        matchOrError(Kind.LPAREN, "Expected '(' after expression.");
+        advanceIfMatches(Kind.KW_IF, "Expected 'if' after expression.");
+        advanceIfMatches(Kind.LPAREN, "Expected '(' after expression.");
         ASTNode expr = expression();
-        matchOrError(Kind.RPAREN, "Expected ')' after expression.");
-        ASTNode expr2 = expression();  
-        matchOrError(Kind.KW_ELSE, "Expected 'else' after expression.");
-        ASTNode expr3 = expression();  
-        matchOrError(Kind.KW_FI, "Expected 'fi' after expression.");
+        advanceIfMatches(Kind.RPAREN, "Expected ')' after expression.");
+        ASTNode expr2 = expression();
+        advanceIfMatches(Kind.KW_ELSE, "Expected 'else' after expression.");
+        ASTNode expr3 = expression();
+        advanceIfMatches(Kind.KW_FI, "Expected 'fi' after expression.");
         return new ConditionalExpr(token, (Expr)expr, (Expr)expr2, (Expr)expr3);
     }
 
     // Expr::= ConditionalExpr | LogicalOrExpr
-    ASTNode expression() throws PLCException
+    private ASTNode expression() throws PLCException
     {
-        token = peek();  //Peek next token, which will be the first token of expression
-    	switch(token.getKind())
-        {
-            case KW_IF : return conditionalexpr();
-            case BANG, MINUS, COLOR_OP, IMAGE_OP, BOOLEAN_LIT, STRING_LIT, INT_LIT , FLOAT_LIT ,IDENT , LPAREN : return logicalorexpr();
-            default : throw new SyntaxException("Expected expression start", token.getSourceLocation());
-        }
+        token = peek();
+        if(peekMatches(Kind.KW_IF)) return conditionalexpr();
+        else if(peekMatches(Kind.BANG, Kind.MINUS, Kind.COLOR_OP, Kind.IMAGE_OP, Kind.BOOLEAN_LIT, Kind.STRING_LIT, Kind.INT_LIT, Kind.FLOAT_LIT, Kind.IDENT, Kind.LPAREN)) return logicalorexpr();
+        else throw new SyntaxException("Expected expression", token.getSourceLocation());
     }
 }
