@@ -57,9 +57,10 @@ public class Parser implements IParser {
 
     // Consumes current token, advancing to next token
     // Used for terminals that MUST be there (hence the "void" return type & exception throw)
-    private void advanceIfMatches(Kind kind, String message) throws PLCException {
-        if (peekMatches(kind)) advance();
+    private IToken advanceIfMatches(Kind kind, String message) throws PLCException {
+        if (peekMatches(kind))return advance();
         else throw new SyntaxException(message, token.getSourceLocation());
+        
     }
 
     // ========================================== //
@@ -124,9 +125,7 @@ public class Parser implements IParser {
             return expr;
         }
         
-        //checking: '<<' Expr ',' Expr ',' Expr '>>' 
-        else if(peekMatches(Kind.LANGLE))
-        {
+        	//checking: '<<' Expr ',' Expr ',' Expr '>>' 
         	advanceIfMatches(Kind.LANGLE, "Expected '<<' or primary expression.");
             ASTNode red = expression();
         	advanceIfMatches(Kind.COMMA, "Expected ',' or primary expression.");
@@ -137,10 +136,7 @@ public class Parser implements IParser {
         	return new ColorExpr(token, (Expr)red, (Expr)green, (Expr)blue);
         	//ColorExpr(IToken firstToken, Expr red, Expr green, Expr blue) {
 
-        }
-        
-        //return null??
-        return null;
+       
     }
     
     //TODO: Statement::=
@@ -155,28 +151,26 @@ public class Parser implements IParser {
     	//Checks: IDENT  
     	if (peekMatches(Kind.IDENT)) 
         {
-    		//not sure if this is correct for storing name 
-    		name = token.getStringValue();
-    		advance();
+    		name = advance().getStringValue();
+    		//or try getText
     		
     		//Checks: PixelSelector?
     		if(peekMatches(Kind.LSQUARE))
         	{
     			advance();
-        		ASTNode expr = pixelselector();
+    			selector = (PixelSelector)pixelselector();
         	}
     		//checks if '=' 
-    		else if(peekMatches(Kind.ASSIGN))
+    		if(peekMatches(Kind.ASSIGN))
     		{
-    			IToken operator = advance(); //stores ' = '
+    			IToken operator = advance(); //stores '='
     			ASTNode expr =  expression();
     			return new AssignmentStatement(token, name, selector, (Expr)expr); 
-    			//AssignmentStatement(IToken firstToken, String name, PixelSelector selector, Expr expr) {
-
+    			//AssignmentStatement(IToken firstToken, String name, PixelSelector selector, Expr expr) 
     		}
     		
     		//checks if ‘<-’
-    		else if(peekMatches(Kind.LARROW))
+    		if(peekMatches(Kind.LARROW))
     		{
     			IToken operator = advance(); //stores ' <- '
     			ASTNode expr =  expression();
@@ -191,10 +185,13 @@ public class Parser implements IParser {
     	else if(peekMatches(Kind.KW_WRITE))
     	{
     		advance();
-    		ASTNode expr =  expression();
+    		ASTNode source =  expression();
     		advanceIfMatches(Kind.RARROW, "Expected '->' before expression.");
-            ASTNode expr2 =  expression();
-           //yields WriteStatement
+            ASTNode dest =  expression();
+           return new WriteStatement( token, (Expr)source,  (Expr)dest);
+           //	public WriteStatement(IToken firstToken, Expr source, Expr dest) {
+
+
 
     	}
     	//Checks: '^' Expr  
@@ -357,47 +354,28 @@ public class Parser implements IParser {
     //TODO
 	//Type IDENT |                             //yields NameDef
 	//Type Dimension IDENT                     //yields  NameDefWithDimension
-
-    //LOOKS LIKE: Type IDENT |  Type Dimension IDENT  
     private ASTNode nameDef() throws PLCException
     {
-    	//check for Type 
-    	if(peekMatches(Kind.TYPE))
-    	{
-        	String type = token.getText();
-        	String name = token.toString();
-        	advance();
-        	
+    		//check for Type 
+    		String type = advanceIfMatches(Kind.TYPE, "Expected 'TYPE' or primary expression.").getStringValue();
+
         	//check for IDENT and return 
             if (peekMatches(Kind.IDENT)) 
             {
-            	//advance? 
+            	String name = advance().getStringValue();
             	return new NameDef(token, type, name);
             	//public NameDef(IToken firstToken, String type, String name)		
             }
             
             //Check for Dimension
-            else if(peekMatches(Kind.LSQUARE))
-        	{
-            	advance();
-        		ASTNode expr = dimension();
-        	}
-            //Check for IDENT
-            else if (peekMatches(Kind.IDENT))
-            {
-            	return new NameDefWithDimension(token, type, name, (Dimension)expr);
-            	//NameDefWithDim(IToken firstToken, String type, String name, Dimension dim) {
+            advanceIfMatches(Kind.LSQUARE, "Expected '[' or primary expression.");
+        	ASTNode expr = dimension();
+            String name = advanceIfMatches(Kind.IDENT, "Expected 'IDENT' or primary expression.").getStringValue();
+            return new NameDefWithDim(token, type, name, (Dimension)expr);
 
-            }
-    	}
-     
-        
-       
-    
     }
     
     
-
     //Should be correct 
     //Is like: MultiplicativeExpr ( ('+'|'-') MultiplicativeExpr )*
     //TODO
