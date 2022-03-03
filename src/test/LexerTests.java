@@ -317,6 +317,19 @@ public class LexerTests {
 	}
 
 	@Test
+	void testIDENTS1() throws LexicalException {
+		String input = """
+			string s1 <- console;
+			""";
+		show(input);
+		ILexer lexer = getLexer(input);
+		checkToken(lexer.next(), Kind.TYPE, 0, 0);
+		checkToken(lexer.next(), Kind.IDENT, 0, 7);
+		checkToken(lexer.next(), Kind.LARROW, 0, 10);
+		checkToken(lexer.next(), Kind.KW_CONSOLE, 0, 13);
+	}
+
+	@Test
 	public void testEOF1() throws LexicalException {
 		String input = "#ThisEndsInEOF";
 		show(input);
