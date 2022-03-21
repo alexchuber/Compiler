@@ -25,7 +25,7 @@ import edu.ufl.cise.plc.ast.StringLitExpr;
 import edu.ufl.cise.plc.ast.UnaryExpr;
 import edu.ufl.cise.plc.ast.UnaryExprPostfix;
 
-class Assignment2StarterTests {
+class Parser1Tests {
 
 	private ASTNode getAST(String input) throws Exception {
 		IParser parser = CompilerComponentFactory.getParser(input);

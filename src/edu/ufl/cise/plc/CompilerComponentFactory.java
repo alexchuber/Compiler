@@ -15,5 +15,9 @@ public class CompilerComponentFactory {
 	{
 		return new Parser(input);
 	}
-	
+
+	public static TypeCheckVisitor getTypeChecker()
+	{
+		return new TypeCheckVisitor();
+	}
 }

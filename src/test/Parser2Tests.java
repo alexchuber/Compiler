@@ -1,7 +1,6 @@
 package test;
 
 import static edu.ufl.cise.plc.IToken.Kind.MINUS;
-import static edu.ufl.cise.plc.IToken.Kind.BANG;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,7 +33,7 @@ import edu.ufl.cise.plc.ast.PixelSelector;
 import edu.ufl.cise.plc.ast.Program;
 import edu.ufl.cise.plc.ast.NameDef;
 import edu.ufl.cise.plc.ast.NameDefWithDim;
-import edu.ufl.cise.plc.ast.Types;
+
 import static edu.ufl.cise.plc.ast.Types.Type;
 import edu.ufl.cise.plc.ast.ReadStatement;
 import edu.ufl.cise.plc.ast.ReturnStatement;
@@ -47,12 +46,11 @@ import edu.ufl.cise.plc.ast.VarDeclaration;
 import edu.ufl.cise.plc.LexicalException;
 import edu.ufl.cise.plc.SyntaxException;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import java.io.PrintStream;
+
 import java.util.List;
 
-class Assignment3StarterTest {
+class Parser2Tests {
 
 	private ASTNode getAST(String input) throws Exception {
 		IParser parser = CompilerComponentFactory.getParser(input);
