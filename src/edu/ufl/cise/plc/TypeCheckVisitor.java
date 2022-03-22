@@ -139,8 +139,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 	//This method has several cases. Work incrementally and test as you go. 
 	@Override
 	public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
-		//TODO:  implement this method 
-		//fix code from slide
+		//TODO:  implement this method (done)
 		Kind op = binaryExpr.getOp().getKind();
 		Type leftType = (Type) binaryExpr.getLeft().visit(this, arg);
 		Type rightType = (Type) binaryExpr.getRight().visit(this, arg);
@@ -148,31 +147,46 @@ public class TypeCheckVisitor implements ASTVisitor {
 		
 		switch(op) {//AND, OR, PLUS, MINUS, TIMES, DIV, MOD, EQUALS, NOT_EQUALS, LT, LE, GT,GE} 
 		
+		case AND,OR -> {
+			if (leftType == Type.BOOLEAN && rightType == Type.BOOLEAN) resultType = Type.BOOLEAN;
+			else check(false, binaryExpr, "incompatible types for operator");
+
+		}
 		case EQUALS,NOT_EQUALS -> {
-				check(leftType == rightType, binaryExpr, "incompatible types for comparison"); 
-				resultType = Type.BOOLEAN;
+				if (leftType == rightType) resultType = Type.BOOLEAN;
+				else check(false, binaryExpr, "incompatible types for operator");
+
 		}
-		case PLUS -> {
+		case PLUS,MINUS  -> {
 				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.INT;
-				else if (leftType == Type.STRING && rightType == Type.STRING) resultType = Type.STRING; 
-				else if (leftType == Type.BOOLEAN && rightType == Type.BOOLEAN) resultType = Type.BOOLEAN; else check(false, binaryExpr, "incompatible types for operator");
+				else if (leftType == Type.FLOAT && rightType == Type.FLOAT) resultType = Type.FLOAT;
+				else if (leftType == Type.INT && rightType == Type.FLOAT) resultType = Type.FLOAT;
+				else if (leftType == Type.FLOAT && rightType == Type.INT) resultType = Type.FLOAT;
+				else if (leftType == Type.COLOR && rightType == Type.COLOR) resultType = Type.COLOR;
+				else if (leftType == Type.COLORFLOAT && rightType == Type.COLORFLOAT) resultType = Type.COLORFLOAT;
+				else if (leftType == Type.COLORFLOAT && rightType == Type.COLOR) resultType = Type.COLORFLOAT;
+				else if (leftType == Type.COLOR && rightType == Type.COLORFLOAT) resultType = Type.COLORFLOAT;
+				else if (leftType == Type.IMAGE && rightType == Type.IMAGE) resultType = Type.IMAGE;
+				else check(false, binaryExpr, "incompatible types for operator");
+
+
 		}
-		case MINUS -> {
-				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.INT;
-				else if (leftType == Type.STRING && rightType == Type.STRING) resultType = Type.STRING; 
+		case TIMES,DIV,MOD -> {
+				if (leftType == Type.IMAGE && rightType == Type.INT) resultType = Type.IMAGE;
+				else if (leftType == Type.IMAGE && rightType == Type.FLOAT) resultType = Type.IMAGE;
+				else if (leftType == Type.INT && rightType == Type.COLOR) resultType = Type.COLOR; 
+				else if (leftType == Type.COLOR && rightType == Type.INT) resultType = Type.COLOR; 
+				else if (leftType == Type.FLOAT && rightType == Type.COLOR) resultType = Type.COLORFLOAT; 
+				else if (leftType == Type.COLOR && rightType == Type.FLOAT) resultType = Type.COLORFLOAT; 
 				else check(false, binaryExpr, "incompatible types for operator");
 		}
-		case TIMES -> {
-				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.INT;
-				else if (leftType == Type.BOOLEAN && rightType == Type.BOOLEAN) resultType = Type.BOOLEAN; else check(false, binaryExpr, "incompatible types for operator");
-		}
-		case DIV -> {
-				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.INT;
-				else check(false, binaryExpr, "incompatible types for operator");
-		}
+	
 		
 		case LT, LE, GT, GE -> {
-				if (leftType == rightType) resultType = Type.BOOLEAN; 
+				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.BOOLEAN;
+				else if (leftType == Type.FLOAT && rightType == Type.FLOAT) resultType = Type.BOOLEAN;
+				else if (leftType == Type.INT && rightType == Type.FLOAT) resultType = Type.BOOLEAN; 
+				else if (leftType == Type.FLOAT && rightType == Type.INT) resultType = Type.BOOLEAN; 
 				else check(false, binaryExpr, "incompatible types for operator");
 		}
 		default -> {
@@ -186,12 +200,11 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 	@Override
 	public Object visitIdentExpr(IdentExpr identExpr, Object arg) throws Exception {
-		//TODO:  implement this method
-		//Fix code from slide 
+		//TODO:  implement this method  (should be good)
 		String name = identExpr.toString();
 		Declaration dec = symbolTable.lookup(name);
 		check(dec != null, identExpr, "undefined identifier " + name); 
-		check(dec.isAssigned(), identExpr, "using uninitialized variable"); 
+		check(dec.isInitialized(), identExpr, "using uninitialized variable"); 
 		identExpr.setDec(dec); //save declaration--will be useful later.
 		Type type = dec.getType(); 
 		identExpr.setType(type); 
