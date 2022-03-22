@@ -59,14 +59,16 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 	@Override
 	public Object visitStringLitExpr(StringLitExpr stringLitExpr, Object arg) throws Exception {
-		//TODO:  implement this method
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		//TODO:  implement this method (done)
+		stringLitExpr.setType(Type.STRING);
+		return Type.STRING;
 	}
 
 	@Override
 	public Object visitIntLitExpr(IntLitExpr intLitExpr, Object arg) throws Exception {
-		//TODO:  implement this method
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		//TODO:  implement this method (done)
+		intLitExpr.setType(Type.INT);
+		return Type.INT;
 	}
 
 	@Override
@@ -77,8 +79,9 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 	@Override
 	public Object visitColorConstExpr(ColorConstExpr colorConstExpr, Object arg) throws Exception {
-		//TODO:  implement this method
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		//TODO:  implement this method ?? 
+		colorConstExpr.setType(Type.COLOR);
+		return Type.COLOR;
 	}
 
 	@Override
@@ -136,14 +139,63 @@ public class TypeCheckVisitor implements ASTVisitor {
 	//This method has several cases. Work incrementally and test as you go. 
 	@Override
 	public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
-		//TODO:  implement this method
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		//TODO:  implement this method 
+		//fix code from slide
+		Kind op = binaryExpr.getOp().getKind();
+		Type leftType = (Type) binaryExpr.getLeft().visit(this, arg);
+		Type rightType = (Type) binaryExpr.getRight().visit(this, arg);
+		Type resultType = null;
+		
+		switch(op) {//AND, OR, PLUS, MINUS, TIMES, DIV, MOD, EQUALS, NOT_EQUALS, LT, LE, GT,GE} 
+		
+		case EQUALS,NOT_EQUALS -> {
+				check(leftType == rightType, binaryExpr, "incompatible types for comparison"); 
+				resultType = Type.BOOLEAN;
+		}
+		case PLUS -> {
+				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.INT;
+				else if (leftType == Type.STRING && rightType == Type.STRING) resultType = Type.STRING; 
+				else if (leftType == Type.BOOLEAN && rightType == Type.BOOLEAN) resultType = Type.BOOLEAN; else check(false, binaryExpr, "incompatible types for operator");
+		}
+		case MINUS -> {
+				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.INT;
+				else if (leftType == Type.STRING && rightType == Type.STRING) resultType = Type.STRING; 
+				else check(false, binaryExpr, "incompatible types for operator");
+		}
+		case TIMES -> {
+				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.INT;
+				else if (leftType == Type.BOOLEAN && rightType == Type.BOOLEAN) resultType = Type.BOOLEAN; else check(false, binaryExpr, "incompatible types for operator");
+		}
+		case DIV -> {
+				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.INT;
+				else check(false, binaryExpr, "incompatible types for operator");
+		}
+		
+		case LT, LE, GT, GE -> {
+				if (leftType == rightType) resultType = Type.BOOLEAN; 
+				else check(false, binaryExpr, "incompatible types for operator");
+		}
+		default -> {
+				throw new Exception("compiler error");
+		}
+		
+		} 
+		binaryExpr.setType(resultType); 
+		return resultType;
 	}
 
 	@Override
 	public Object visitIdentExpr(IdentExpr identExpr, Object arg) throws Exception {
 		//TODO:  implement this method
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		//Fix code from slide 
+		String name = identExpr.toString();
+		Declaration dec = symbolTable.lookup(name);
+		check(dec != null, identExpr, "undefined identifier " + name); 
+		check(dec.isAssigned(), identExpr, "using uninitialized variable"); 
+		identExpr.setDec(dec); //save declaration--will be useful later.
+		Type type = dec.getType(); 
+		identExpr.setType(type); 
+		return type;
 	}
 
 	@Override
@@ -209,6 +261,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 		//Save root of AST so return type can be accessed in return statements
 		root = program;
 		
+		//This is what the powerpoint had below
 		//Check declarations and statements
 		List<ASTNode> decsAndStatements = program.getDecsAndStatements();
 		for (ASTNode node : decsAndStatements) {
