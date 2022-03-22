@@ -1,8 +1,13 @@
 package edu.ufl.cise.plc;
 
+import java.util.HashMap;
+
+import edu.ufl.cise.plc.ast.ASTNode;
+import edu.ufl.cise.plc.ast.Declaration;
+
 public class SymbolTable {
 
-//TODO:  Implement a symbol table class that is appropriate for this language. 
+//TODO:  Implement a symbol table class that is appropriate for this language. (this should be good)
 	HashMap<String,Declaration> entries = new HashMap<>();
 	//returns true if name successfully inserted in symbol table, false if already present
 	public boolean insert(String name, Declaration declaration) 
