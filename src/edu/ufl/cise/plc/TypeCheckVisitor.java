@@ -79,7 +79,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 	@Override
 	public Object visitColorConstExpr(ColorConstExpr colorConstExpr, Object arg) throws Exception {
-		//TODO:  implement this method ?? 
+		//TODO:  implement this method (done)
 		colorConstExpr.setType(Type.COLOR);
 		return Type.COLOR;
 	}
@@ -180,8 +180,6 @@ public class TypeCheckVisitor implements ASTVisitor {
 				else if (leftType == Type.COLOR && rightType == Type.FLOAT) resultType = Type.COLORFLOAT; 
 				else check(false, binaryExpr, "incompatible types for operator");
 		}
-	
-		
 		case LT, LE, GT, GE -> {
 				if (leftType == Type.INT && rightType == Type.INT) resultType = Type.BOOLEAN;
 				else if (leftType == Type.FLOAT && rightType == Type.FLOAT) resultType = Type.BOOLEAN;
@@ -200,9 +198,9 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 	@Override
 	public Object visitIdentExpr(IdentExpr identExpr, Object arg) throws Exception {
-		//TODO:  implement this method  (should be good)
+		//TODO:  implement this method  (done)
 		String name = identExpr.toString();
-		Declaration dec = symbolTable.lookup(name);
+		Declaration dec = symbolTable.lookup(name); // Lookup name in symbol table, it must be declared.
 		check(dec != null, identExpr, "undefined identifier " + name); 
 		check(dec.isInitialized(), identExpr, "using uninitialized variable"); 
 		identExpr.setDec(dec); //save declaration--will be useful later.
@@ -213,8 +211,17 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 	@Override
 	public Object visitConditionalExpr(ConditionalExpr conditionalExpr, Object arg) throws Exception {
-		//TODO  implement this method
-		throw new UnsupportedOperationException();
+		//TODO  implement this method (Done)
+		Type condition = (Type) conditionalExpr.getCondition().visit(this, arg);
+		Type trueCase = (Type) conditionalExpr.getTrueCase().visit(this, arg);
+		Type falseCase = (Type) conditionalExpr.getFalseCase().visit(this, arg);
+		//Type of condition must be BOOLEAN
+		check(condition == BOOLEAN, conditionalExpr, "condition should be of type Boolean");
+		//Type of trueCase must be the same as the type of falseCase
+		check(trueCase == falseCase, conditionalExpr, "type of trueCase must be the same as the type of falseCase");
+		conditionalExpr.setType(trueCase);
+		//Type is the type of trueCase
+		return trueCase;
 	}
 
 	@Override
@@ -239,8 +246,49 @@ public class TypeCheckVisitor implements ASTVisitor {
 	//This method several cases--you don't have to implement them all at once.
 	//Work incrementally and systematically, testing as you go.  
 	public Object visitAssignmentStatement(AssignmentStatement assignmentStatement, Object arg) throws Exception {
-		//TODO:  implement this method
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		//TODO:  implement this method (Not done)
+		//Get target type by looking up lhs var name in symbol table.  Save type of target variable and its Declaration. 
+		String name = assignmentStatement.getName();
+		Declaration dec = symbolTable.lookup(name); // Lookup name in symbol table, it must be declared.
+		Type targetType = (Type) assignmentStatement.getTargetDec().visit(this, arg);
+		Type exprType = (Type) assignmentStatement.getExpr().visit(this, arg);
+		Type pixelSelector = (Type)assignmentStatement.getSelector().visit(this, arg);
+		//Target variable is marked as initialized.
+		dec.setInitialized(true);
+		
+		//CASE:  target type is not IMAGE
+		if(targetType != IMAGE)
+		{
+			//There is no PixelSelector on left side.
+		
+			//Expression must be assignment compatible with target. 
+				//If the expression type and target variable type are the same, they are assignment compatible.
+				if(targetType == exprType)
+				{
+					//The following pairs are assignment compatible.  The expression is coerced to match the target variable type.
+
+				}
+
+		}
+		
+		//CASE:  target type is an IMAGE without a PixelSelector
+		else if(targetType == IMAGE && pixelSelector == null)
+		{
+			//Expression must be assignment compatible with target
+			//If both the expression and target are IMAGE, they are assignment compatible
+			//The following pairs are assignment compatible.  If indicated, the variable should be coerced to the indicated type.
+
+			
+		}
+		
+		else if(targetType == IMAGE && pixelSelector != null)
+		{
+			//Recall from scope rule:  expressions appearing in PixelSelector that appear on the left side of an assignment statement are local variables defined in the assignment statement.  
+			//These variables are implicitly declared to have type INT, and must be an IdentExpr.  The names cannot be previously declared as global variable.
+			//Type of right hand side must be COLOR, COLORFLOAT, FLOAT, or INT, and is coerced to COLOR.  
+
+		}
+		
 	}
 
 
@@ -248,22 +296,56 @@ public class TypeCheckVisitor implements ASTVisitor {
 	public Object visitWriteStatement(WriteStatement writeStatement, Object arg) throws Exception {
 		Type sourceType = (Type) writeStatement.getSource().visit(this, arg);
 		Type destType = (Type) writeStatement.getDest().visit(this, arg);
-		check(destType == Type.STRING || destType == Type.CONSOLE, writeStatement,
-				"illegal destination type for write");
+		check(destType == Type.STRING || destType == Type.CONSOLE, writeStatement, "illegal destination type for write");
 		check(sourceType != Type.CONSOLE, writeStatement, "illegal source type for write");
 		return null;
 	}
 
 	@Override
 	public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
-		//TODO:  implement this method
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		//TODO:  implement this method (not sure if this 100% correct)
+		//Get target type by looking up lhs var name in symbol table.
+		String name = readStatement.getName();
+		Declaration dec = symbolTable.lookup(name); // Lookup name in symbol table, it must be declared.
+		Type targetType = (Type) dec.getType();
+		Type pixelType = (Type) readStatement.getSelector().visit(this, arg);
+		
+		//A read statement cannot have a PixelSelector
+		//not sure if I'm checking this correctly
+		check(pixelType != null , readStatement, "read statement cannot have a PixelSelector");
+
+		//The right hand side type must be CONSOLE or STRING
+		Type sourceType = (Type) readStatement.getSource().visit(this, arg);
+		check(sourceType == CONSOLE || sourceType == STRING, readStatement, "The right hand side type must be CONSOLE or STRING");
+
+		//Mark target variable as initialized.
+		dec.setInitialized(true);
+		return null;
+
 	}
+	
+	//added function 
+	private boolean assignmentCompatible(Type targetType, Type rhsType) { 
+		//fix to reflect rules 
+		//maybe this function is visitAssignmentStatement
+		return (targetType == rhsType || targetType==Type.STRING && rhsType==Type.INT || targetType==Type.STRING && rhsType==Type.BOOLEAN); 
+		}
 
 	@Override
 	public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
-		//TODO:  implement this method
-		throw new UnsupportedOperationException("Unimplemented visit method.");
+		//TODO:  implement this method (should be good)
+		String name = declaration.getName();
+		boolean inserted = symbolTable.insert(name,declaration);
+		check(inserted, declaration, "variable " + name + "already declared");
+		Expr initializer = declaration.getExpr(); //getInitializer(); 
+		if (initializer != null) 
+		{
+		    //infer type of initializer
+			Type initializerType = (Type) initializer.visit(this,arg); 
+			check(assignmentCompatible(declaration.getType(), initializerType),declaration, "type of expression and declared type do not match"); 
+			declaration.setInitialized(true);
+		}
+		return null;
 	}
 
 
@@ -286,12 +368,24 @@ public class TypeCheckVisitor implements ASTVisitor {
 	@Override
 	public Object visitNameDef(NameDef nameDef, Object arg) throws Exception {
 		//TODO:  implement this method
-		throw new UnsupportedOperationException();
+		//insert name in symbol table
+		String name = nameDef.getName();
+		boolean inserted = symbolTable.insert(name,nameDef);
+		Type varType = (Type) nameDef.visit(this, arg);
+
+		if(varType == IMAGE)
+		{
+			//If type of variable is Image, it must either have an initializer expression of type IMAGE, or a Dimension.
+
+		}
+	
 	}
 
 	@Override
 	public Object visitNameDefWithDim(NameDefWithDim nameDefWithDim, Object arg) throws Exception {
 		//TODO:  implement this method
+		//For Dimensions, both expressions must have type INT
+
 		throw new UnsupportedOperationException();
 	}
  
