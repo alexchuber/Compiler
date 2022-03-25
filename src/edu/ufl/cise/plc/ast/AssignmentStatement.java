@@ -8,7 +8,7 @@ public class AssignmentStatement extends Statement {
 	final String name;
 	final PixelSelector selector;
 	final Expr expr;
-//	Type targetType;
+	// Type targetType;
 	Declaration targetDec;
 
 	
@@ -33,13 +33,13 @@ public class AssignmentStatement extends Statement {
 	
 	
 	
-//	public Type getTargetType() {
-//		return targetType;
-//	}
+	//public Type getTargetType() {
+	//	return targetType;
+	//}
 
-//	public void setTargetType(Type targetType) {
-//		this.targetType = targetType;
-//	}
+	//public void setTargetType(Type targetType) {
+	//	this.targetType = targetType;
+	//}
 
 	public Declaration getTargetDec() {
 		return targetDec;
