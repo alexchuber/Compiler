@@ -30,6 +30,15 @@ public class CodeGenStringBuilder {
         delegate.append(")");
         return this;
     }
+    public CodeGenStringBuilder clparen(){
+        delegate.append("{");
+        return this;
+    }
+
+    public CodeGenStringBuilder crparen(){
+        delegate.append("}");
+        return this;
+    }
 
     public CodeGenStringBuilder semi(){
         delegate.append(";");
@@ -43,6 +52,16 @@ public class CodeGenStringBuilder {
 
     public CodeGenStringBuilder equal(){
         delegate.append("=");
+        return this;
+    }
+    
+    public CodeGenStringBuilder question(){
+        delegate.append("?");
+        return this;
+    }
+    
+    public CodeGenStringBuilder colon(){
+        delegate.append(":");
         return this;
     }
 
