@@ -358,6 +358,10 @@ public class TypeCheckVisitor implements ASTVisitor {
 		Type sourceType = (Type) readStatement.getSource().visit(this, arg);
 		check(sourceType == CONSOLE || sourceType == STRING, readStatement, "right hand side type must be CONSOLE or STRING");
 
+		//If rhs is console, then coerce rhs to whatever lhs is
+		if(sourceType == CONSOLE)
+			readStatement.getSource().setCoerceTo(((NameDef) targetdec).getType());
+
 		//Mark target variable as initialized.
 		targetdec.setInitialized(true);
 		return null;
@@ -498,6 +502,9 @@ public class TypeCheckVisitor implements ASTVisitor {
 		{
 			Type exprType = (Type) declaration.getExpr().visit(this, arg);
 			check(exprType == CONSOLE || exprType == STRING, declaration, "right hand side type must be CONSOLE or STRING");
+			//If rhs is console, then coerce rhs to whatever lhs is
+			if(exprType == CONSOLE)
+				declaration.getExpr().setCoerceTo(targetType);
 		}
 
 		return null;
