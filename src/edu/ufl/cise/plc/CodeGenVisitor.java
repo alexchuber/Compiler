@@ -45,7 +45,26 @@ public class CodeGenVisitor implements ASTVisitor {
 		byte[] byteCode = DynamicCompiler.compile(fullName, code);
 		return byteCode;
 		}*/
-	//visitX(CodeGenVisitor v, StringBuilder sb) 
+	
+	/*
+	 * From powerpoint: not sure if needed 
+	 * 
+	 * 
+		class CodeGenStringBuilder {
+         StringBuilder delegate;
+         //methods reimplemented—just call the delegates method
+            public CodeGenStringBuilder append(String s){
+                delegate.append(st);
+                return this;
+            }
+            etc.
+            //new methods
+            public CodeGenStringBuilder comma(){
+                 delegate.append(“,”);
+                 return this;
+            }
+            etc.
+		}*/
 
 	
 	//from pwp
@@ -82,9 +101,19 @@ public class CodeGenVisitor implements ASTVisitor {
 	public Object conditionalExpr(ReturnStatement returnStatement, Object arg) throws Exception {
 		  return null;
 		}
+	
+	//( <left> <op> <right> )
 	public Object binaryExpr(ReturnStatement returnStatement, Object arg) throws Exception {
-		  return null;
+		codeGenStringBuilder sb = newCodeGenStringBuilder();
+		Type type = binaryExpr.getType();
+		Expr leftExpr = binaryExpr.getLeft();
+		Expr rightExpr = binaryExpr.getRight();
+		Type leftType = leftExpr.getCoerceTo() != null ? leftExpr.getCoerceTo() : leftExpr.getType();
+		Type rightType = rightExpr.getCoerceTo() != null ? rightExpr.getCoerceTo() : rightExpr.getType();
+		Kind op = binaryExpr.getOp().getKind();
+		return null;
 		}
+	
 	public Object booleanLitExpr(ReturnStatement returnStatement, Object arg) throws Exception {
 		  return null;
 		}
