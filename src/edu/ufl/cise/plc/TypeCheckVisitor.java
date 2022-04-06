@@ -360,7 +360,7 @@ public class TypeCheckVisitor implements ASTVisitor {
 
 		//If rhs is console, then coerce rhs to whatever lhs is
 		if(sourceType == CONSOLE)
-			readStatement.getSource().setCoerceTo(((NameDef) targetdec).getType());
+			readStatement.getSource().setCoerceTo(targetdec.getType());
 
 		//Mark target variable as initialized.
 		targetdec.setInitialized(true);
