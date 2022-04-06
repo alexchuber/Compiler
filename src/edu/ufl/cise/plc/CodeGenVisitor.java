@@ -29,13 +29,12 @@ public class CodeGenVisitor implements ASTVisitor {
 	}
 
 	//generate Java code  (not sure if we need this, from power point)
-	private String genCode(ASTNode ast, String packageName, String className) throws 
-	Exception {
-	CodeGenVisitor v = (CodeGenVisitor) 
-	CompilerComponentFactory.getCodeGenerator(packageName);
-	String[] names = {packageName, className};
-	String code = (String) ast.visit(v, names);
-	return code;
+	private String genCode(ASTNode ast, String packageName, String className) throws Exception {
+		CodeGenVisitor v = (CodeGenVisitor)
+		CompilerComponentFactory.getCodeGenerator(packageName);
+		String[] names = {packageName, className};
+		String code = (String) ast.visit(v, names);
+		return code;
 	}
 	
 	/*//Compile generated java code (not sure if we need this, from power point)
@@ -70,79 +69,158 @@ public class CodeGenVisitor implements ASTVisitor {
 	//from pwp
 	@Override
 	public Object visitReturnStatement(ReturnStatement returnStatement, Object arg) throws Exception {
-	  //TODO: Is this the correct object type for sb? 
-	  DynamicClassLoader sb = (DynamicClassLoader) arg;
-	  Expr expr = returnStatement.getExpr();
-	  sb.append("return ");
-	  expr.visit(this, sb);
-	  sb.semi().newline();
-	  return sb;
+	  //TODO: Is this the correct object type for sb? alex: i updated it with the new class that handles making strings
+		// Get the entire code's CGSB (in arg) (the sb is bad naming because its not the same as the other sb's)
+		CodeGenStringBuilder sb = (CodeGenStringBuilder) arg;
+		Expr expr = returnStatement.getExpr();
+		// Append that right onto the entire code's CGSB (we don't really need to make a whole other CGSB to visit only one expr)
+		sb.append("return ");
+	  	expr.visit(this, sb);
+	  	sb.semi().newline();
+	  	return sb;
 	}
-	
-	public Object program(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitProgram(Program program, Object arg) throws Exception {
 		  return null;
 		}
-	
+
+	//i dont think we need these-- i think theyre handled in visitProgram. dw about it for now
 	public Object params(ReturnStatement returnStatement, Object arg) throws Exception {
 		  return null;
 		}
+	//i dont think we need these-- i think theyre handled in visitProgram. dw about it for now
 	public Object imports(ReturnStatement returnStatement, Object arg) throws Exception {
 		  return null;
 		}
+	//i dont think we need these-- i think theyre handled in visitProgram. dw about it for now
 	public Object decsAndStatements(ReturnStatement returnStatement, Object arg) throws Exception {
 		  return null;
 		}
-	public Object nameDef(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitNameDef(NameDef nameDef, Object arg) throws Exception {
 		  return null;
 		}
-	public Object varDeclaration(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitNameDefWithDim(NameDefWithDim nameDefWithDim, Object arg) throws Exception {
+		return null;
+	}
+
+	@Override
+	public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
 		  return null;
 		}
-	public Object conditionalExpr(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitUnaryExprPostfix(UnaryExprPostfix unaryExprPostfix, Object arg) throws Exception {
+		return null;
+	}
+
+	@Override
+	public Object visitConditionalExpr(ConditionalExpr conditionalExpr, Object arg) throws Exception {
 		  return null;
 		}
-	
+
+	@Override
+	public Object visitDimension(Dimension dimension, Object arg) throws Exception {
+		return null;
+	}
+
+	@Override
+	public Object visitPixelSelector(PixelSelector pixelSelector, Object arg) throws Exception {
+		return null;
+	}
+
 	//( <left> <op> <right> )
-	public Object binaryExpr(ReturnStatement returnStatement, Object arg) throws Exception {
-		codeGenStringBuilder sb = newCodeGenStringBuilder();
+	@Override
+	public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
 		Type type = binaryExpr.getType();
 		Expr leftExpr = binaryExpr.getLeft();
 		Expr rightExpr = binaryExpr.getRight();
 		Type leftType = leftExpr.getCoerceTo() != null ? leftExpr.getCoerceTo() : leftExpr.getType();
 		Type rightType = rightExpr.getCoerceTo() != null ? rightExpr.getCoerceTo() : rightExpr.getType();
 		Kind op = binaryExpr.getOp().getKind();
+
+		//now build the binary expr's string
+		sb.lparen();
+		binaryExpr.getLeft().visit(this, sb);
+		sb.append(binaryExpr.getOp().getText());
+		binaryExpr.getRight().visit(this, sb);
+		sb.rparen();
+
+		//idk what this is but im leaving it here for now
+		if (binaryExpr.getCoerceTo() != type) {
+			genTypeConversion(type, binaryExpr.getCoerceTo(), sb);
+		}
+
+		// append the binary expr's CodeGenStringBuilder (sb) to the entire code's CodeGenStringBuilder (arg)
+		return ((CodeGenStringBuilder) arg).append(sb);
+
+		}
+
+	@Override
+	public Object visitBooleanLitExpr(BooleanLitExpr booleanLitExpr, Object arg) throws Exception {
+		  return null;
+		}
+
+	@Override
+	public Object visitConsoleExpr(ConsoleExpr consoleExpr, Object arg) throws Exception {
+		  return null;
+		}
+
+	@Override
+	public Object visitColorExpr(ColorExpr colorExpr, Object arg) throws Exception {
 		return null;
-		}
-	
-	public Object booleanLitExpr(ReturnStatement returnStatement, Object arg) throws Exception {
+	}
+
+	@Override
+	public Object visitFloatLitExpr(FloatLitExpr floatLitExpr, Object arg) throws Exception {
 		  return null;
 		}
-	public Object consoleExpr(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitColorConstExpr(ColorConstExpr colorConstExpr, Object arg) throws Exception {
+		return null;
+	}
+
+	@Override
+	public Object visitIntLitExpr(IntLitExpr intLitExpr, Object arg) throws Exception {
 		  return null;
 		}
-	public Object floatLitExpr(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitIdentExpr(IdentExpr identExpr, Object arg) throws Exception {
 		  return null;
 		}
-	public Object intLitExpr(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitStringLitExpr(StringLitExpr stringLitExpr, Object arg) throws Exception {
 		  return null;
 		}
-	public Object identExpr(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitUnaryExpr(UnaryExpr unaryExpr, Object arg) throws Exception {
 		  return null;
 		}
-	public Object stringLitExpr(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
 		  return null;
 		}
-	public Object unaryExpr(ReturnStatement returnStatement, Object arg) throws Exception {
+
+	@Override
+	public Object visitAssignmentStatement(AssignmentStatement assignmentStatement, Object arg) throws Exception {
 		  return null;
 		}
-	public Object readStatement(ReturnStatement returnStatement, Object arg) throws Exception {
-		  return null;
-		}
-	
-	public Object assignmentStatement(ReturnStatement returnStatement, Object arg) throws Exception {
-		  return null;
-		}
-	
+
+	@Override
+	public Object visitWriteStatement(WriteStatement writeStatement, Object arg) throws Exception {
+		return null;
+	}
+
 	//return statement is above 
 
 }
