@@ -24,26 +24,6 @@ public class CodeGenVisitor implements ASTVisitor {
 		this.pkgdec = pkgdec;
 	}
 
-	//generate Java code  (not sure if we need this, from power point)
-	private String genCode(ASTNode ast, String packageName, String className) throws Exception {
-		CodeGenVisitor v = (CodeGenVisitor)
-		CompilerComponentFactory.getCodeGenerator(packageName);
-		String[] names = {packageName, className};
-		String code = (String) ast.visit(v, names);
-		return code;
-	}
-	
-	/*//Compile generated java code (not sure if we need this, from power point)
-	private byte[] genBytecode(String input, String packageName, String className) throws Exception {
-		String code = genJavaCode(input, packageName);
-		String fullName = packageName != "" ? packageName + '.' + className : className;
-		byte[] byteCode = DynamicCompiler.compile(fullName, code);
-		return byteCode;
-		}*/
-
-
-
-	
 	@Override
 	/* <package declaration>
 	<imports>
@@ -84,10 +64,11 @@ public class CodeGenVisitor implements ASTVisitor {
 	@Override
 	//<type> <name>
 	public Object visitNameDef(NameDef nameDef, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		sb.append(nameDef.getType()).space();
-		sb.append(nameDef.getName());
-		return ((CodeGenStringBuilder) arg).append(sb);
+		((CodeGenStringBuilder)arg)
+				.append(nameDef.getType())
+				.space()
+				.append(nameDef.getName());
+		return arg;
 		}
 
 	@Override
@@ -97,35 +78,47 @@ public class CodeGenVisitor implements ASTVisitor {
 	}
 
 	@Override
-	//(only read initializers from console for assignment 5)
 	// <nameDef> ;
 	// Or if  this  has an assignment or read initializer
 	// <nameDef> = <expr>
+	//(only read initializers from console for assignment 5)
 	public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		declaration.getNameDef().visit(this, sb); //get name def in stringbuilder
+		NameDef namedef = declaration.getNameDef();
+		Expr expr = declaration.getExpr();
 		IToken op = declaration.getOp();
+
+		namedef.visit(this, arg);
+
 		//If there's a RHS
-		if(op != null) {
-			sb.assign();
+		if(expr != null) {
+			((CodeGenStringBuilder)arg)
+					.assign();
+
 			//Check for cast
-			Type coerceTo = declaration.getExpr().getCoerceTo();
-			Type type = declaration.getExpr().getType();
+			Type coerceTo = expr.getCoerceTo();
+			Type type = expr.getType();
 			if (coerceTo != null && type != coerceTo) {
-				sb.lparen().append(coerceTo).rparen();
+				((CodeGenStringBuilder)arg)
+						.lparen()
+						.append(coerceTo)
+						.rparen();
 			}
 
+			//Check read or assign... actually this needs refactoring but i dont have the will
 			if(op.getKind() == Kind.ASSIGN) {
-				declaration.getExpr().visit(this, sb);
+				expr.visit(this, arg);
 			}
 			if(op.getKind() == Kind.LARROW) {
-				if(declaration.getExpr().getType() != CONSOLE)
+				if(expr.getType() != CONSOLE)
 					throw new UnsupportedOperationException("Not yet implemented");
-				declaration.getExpr().visit(this, sb);
+				expr.visit(this, arg);
 			}
 		}
-		sb.semi();
-		return ((CodeGenStringBuilder) arg).append(sb);
+
+		((CodeGenStringBuilder)arg)
+				.semi();
+
+		return arg;
 		}
 
 	@Override
@@ -137,17 +130,24 @@ public class CodeGenVisitor implements ASTVisitor {
 	@Override
 	// ( <condition> ) ? <trueCase> : <falseCase>
 	public Object visitConditionalExpr(ConditionalExpr conditionalExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		sb.lparen();
-		sb.lparen();
-		conditionalExpr.getCondition().visit(this, sb);
-		sb.rparen();
-		sb.question();
-		conditionalExpr.getTrueCase().visit(this, sb);
-		sb.colon();
-		conditionalExpr.getFalseCase().visit(this, sb);
-		sb.rparen();
-		return ((CodeGenStringBuilder) arg).append(sb);
+		Expr condition = conditionalExpr.getCondition();
+		Expr truecase = conditionalExpr.getTrueCase();
+		Expr falsecase = conditionalExpr.getFalseCase();
+
+		((CodeGenStringBuilder)arg)
+				.lparen()
+				.lparen();
+		condition.visit(this, arg);
+		((CodeGenStringBuilder)arg)
+				.rparen()
+				.question();
+		truecase.visit(this, arg);
+		((CodeGenStringBuilder)arg)
+				.colon();
+		falsecase.visit(this, arg);
+		((CodeGenStringBuilder)arg)
+				.rparen();
+		return arg;
 		}
 
 	@Override
@@ -165,7 +165,6 @@ public class CodeGenVisitor implements ASTVisitor {
 	@Override
 	//( <left> <op> <right> )
 	public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
 		Type coerceTo = binaryExpr.getCoerceTo();
 		Type type = binaryExpr.getType();
 		Expr left = binaryExpr.getLeft();
@@ -173,63 +172,58 @@ public class CodeGenVisitor implements ASTVisitor {
 		IToken op = binaryExpr.getOp();
 
 		if (coerceTo != null && type != coerceTo) {
-			sb.lparen().append(coerceTo).rparen();
+			((CodeGenStringBuilder)arg)
+					.lparen()
+					.append(coerceTo)
+					.rparen();
 		}
 
 		//Very extremely specific case of comparing two strings
 		if(left.getType() == STRING && right.getType() == STRING && (op.getKind() == Kind.NOT_EQUALS || op.getKind() == Kind.EQUALS))
 		{
-			sb.lparen();
+			((CodeGenStringBuilder)arg)
+					.lparen();
+
 			if(op.getKind() == Kind.NOT_EQUALS)
-				sb.bang();
-			binaryExpr.getLeft().visit(this, sb);
-			sb.append(".equals").lparen();
-			binaryExpr.getRight().visit(this, sb);
-			sb.rparen().rparen();
-			return ((CodeGenStringBuilder) arg).append(sb);
+				((CodeGenStringBuilder)arg)
+						.bang();
+
+			left.visit(this, arg);
+			((CodeGenStringBuilder)arg)
+					.append(".equals")
+					.lparen();
+			right.visit(this, arg);
+			((CodeGenStringBuilder)arg)
+					.rparen()
+					.rparen();
+			return arg;
 		}
 
-		sb.lparen();
-		left.visit(this, sb);
-		sb.append(op.getText());
-		right.visit(this, sb);
-		sb.rparen();
+		((CodeGenStringBuilder)arg)
+				.lparen();
+		left.visit(this, arg);
+		((CodeGenStringBuilder)arg)
+				.append(op.getText());
+		right.visit(this, arg);
+		((CodeGenStringBuilder)arg)
+				.rparen();
 
-		return ((CodeGenStringBuilder) arg).append(sb);
+		return arg;
 
 		}
 
 	@Override
 	//Java literal corresponding to value (i.e. true or false)
 	public Object visitBooleanLitExpr(BooleanLitExpr booleanLitExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		sb.append(booleanLitExpr.getValue());
-		return ((CodeGenStringBuilder) arg).append(sb);
-		}
+		((CodeGenStringBuilder)arg)
+				.append(booleanLitExpr.getValue());
+		return arg;
+	}
 
 	@Override
-	/*
-	 * ( <boxed(coerceTo)> ConsoleIO.readValueFromConsole( “coerceType”, <prompt>)
-
-	<prompt> is a string that requests the user to enter the desired type.
-
-	<boxed(type)> means the object version of the indicated type: Integer, Boolean, Float, etc. 
-
-	The first argument of readValueFromConsole is an all uppercase String literal with corresponding to the type. (i.e. one of “INT”, “STRING”, “BOOLEAN”,  “FLOAT”)
-
-	For example, if the PLCLang source has
-
-	j <- console;
-	where j is int, then this would translate to
-
-	j = (Integer) ConsoleIO.readValueFromConsole(“INT”, “Enter integer:”);
-
-	Note that the “j = “ part would be generated by the parent AssignmentStatement.  See the provided ConsoleIO class.  
-	 */
+	// ( <boxed(coerceTo)> ConsoleIO.readValueFromConsole(“coerceType”, <prompt>) )
 	public Object visitConsoleExpr(ConsoleExpr consoleExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
 		Type coerceTo = consoleExpr.getCoerceTo(); //consoles will always have a coerceTo value
-		sb.lparen();
 		String boxedtype = switch(coerceTo) {
 			case INT -> "Integer";
 			case STRING -> "String";
@@ -237,21 +231,24 @@ public class CodeGenVisitor implements ASTVisitor {
 			case FLOAT -> "Float";
 			default -> throw new UnsupportedOperationException("Not yet (or supposed to be?) implemented");
 		};
-		sb.append(boxedtype);
-		sb.rparen();
-		sb.append("ConsoleIO.readValueFromConsole");
-		sb.lparen();
-		sb.dblquote();
-		sb.append(coerceTo.name());
-		sb.dblquote();
-		sb.comma();
-		sb.dblquote();
-		sb.append("Enter ");
-		sb.append(boxedtype);
-		sb.colon();
-		sb.dblquote();
-		sb.rparen();
-		return ((CodeGenStringBuilder) arg).append(sb);
+
+		((CodeGenStringBuilder)arg)
+				.lparen()
+				.append(boxedtype)
+				.rparen()
+				.append("ConsoleIO.readValueFromConsole")
+				.lparen()
+				.dblquote()
+				.append(coerceTo.name())
+				.dblquote()
+				.comma()
+				.dblquote()
+				.append("Enter ")
+				.append(boxedtype)
+				.colon()
+				.dblquote()
+				.rparen();
+		return arg;
 	}
 
 	@Override
@@ -261,27 +258,23 @@ public class CodeGenVisitor implements ASTVisitor {
 	}
 
 	@Override
-	/*
-	 * Java float literal corresponding to value.  
-
-	If coerceTo != null and coerceTo != FLOAT, add cast to coerced type.
-
-	Recall Java float literals must have f appended.  
-	E.g.  12.3 in source is 12.3f in Java.  (12.3 in Java is a double–if you do this your program will probably run, 
-	but fail test cases that check for equality)
-	 */
+	//Java float literal corresponding to value, with appended f
 	public Object visitFloatLitExpr(FloatLitExpr floatLitExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-
 		Type coerceTo = floatLitExpr.getCoerceTo();
+
+		//Cast if needed
 		if (coerceTo != null && coerceTo != FLOAT) {
-			sb.lparen().append(coerceTo).rparen();
+			((CodeGenStringBuilder)arg)
+					.lparen()
+					.append(coerceTo)
+					.rparen();
 		}
 
-		sb.append(floatLitExpr.getValue());
-		sb.append("f");
+		((CodeGenStringBuilder)arg)
+				.append(floatLitExpr.getValue())
+				.append("f");
 
-		return ((CodeGenStringBuilder) arg).append(sb);
+		return arg;
 		}
 
 	@Override
@@ -291,140 +284,140 @@ public class CodeGenVisitor implements ASTVisitor {
 	}
 
 	@Override
-	/*
-	Java int literal corresponding to value
-
-	If coerceTo != null and coerceTo != INT, add cast to coerced type.
-	 */
+	//Java int literal corresponding to value
 	public Object visitIntLitExpr(IntLitExpr intLitExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-
 		Type coerceTo = intLitExpr.getCoerceTo();
+
+		//Cast if needed
 		if (coerceTo != null && coerceTo != INT) {
-			sb.lparen().append(coerceTo).rparen();
+			((CodeGenStringBuilder)arg)
+					.lparen()
+					.append(coerceTo)
+					.rparen();
 		}
 
-		sb.append(intLitExpr.getValue());
+		((CodeGenStringBuilder)arg)
+				.append(intLitExpr.getValue());
 
-		return ((CodeGenStringBuilder) arg).append(sb);
+		return arg;
 		}
 
 	@Override
-	/*
-	<identExpr.getText>
-
-	If coerceTo != null and coerceTo != identExpr.type, add cast to coerced type.
-
-	 */
+	// <identExpr.getText>
 	public Object visitIdentExpr(IdentExpr identExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-
 		Type coerceTo = identExpr.getCoerceTo();
+
+		//Cast if needed
 		if (coerceTo != null && coerceTo != identExpr.getType()) {
-			sb.lparen().append(coerceTo).rparen();
+			((CodeGenStringBuilder)arg)
+					.lparen()
+					.append(coerceTo)
+					.rparen();
 		}
 
-		sb.append(identExpr.getText());
+		((CodeGenStringBuilder)arg)
+				.append(identExpr.getText());
 
-		return ((CodeGenStringBuilder) arg).append(sb);
+		return arg;
 		}
 
 	@Override
 	// “””
 	// <stringLitExpr.getValue>”””
-	//(we will not handle escape sequences in String literals in this assignment)
+	// (we will not handle escape sequences in String literals in this assignment)
 	public Object visitStringLitExpr(StringLitExpr stringLitExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		sb.dblquote(); sb.dblquote(); sb.dblquote();
-		sb.newline();
-		sb.append(stringLitExpr.getValue());
-		sb.dblquote(); sb.dblquote(); sb.dblquote();
-		return ((CodeGenStringBuilder) arg).append(sb);
+		((CodeGenStringBuilder)arg)
+				.dblquote()
+				.dblquote()
+				.dblquote()
+				.newline()
+				.append(stringLitExpr.getValue())
+				.dblquote()
+				.dblquote()
+				.dblquote();
+		return arg;
 		}
 
 	@Override
-	//( <op> <expr> ) 
-	//(for assignment 5, only - and !)
+	// ( <op> <expr> )
+	// (for assignment 5, only - and !)
 	public Object visitUnaryExpr(UnaryExpr unaryExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		Expr expr = unaryExpr.getExpr();
 		IToken op = unaryExpr.getOp();
+		if(op.getKind() != Kind.MINUS && op.getKind() != Kind.BANG) //might need to move this logic for next assignment
+			throw new UnsupportedOperationException("Not yet implemented");
 
-		sb.lparen();
-		switch (op.getKind()) {
-			case MINUS, BANG: sb.append(unaryExpr.getOp().getText()); break;
-			default: throw new UnsupportedOperationException("Not yet implemented");
-		}
-		unaryExpr.getExpr().visit(this, sb);
-		sb.rparen();
+		((CodeGenStringBuilder)arg)
+				.lparen()
+				.append(op.getText());
+		expr.visit(this, arg);
+		((CodeGenStringBuilder)arg)
+				.rparen();
 
-		return ((CodeGenStringBuilder) arg).append(sb);
+		return arg;
 		}
 
 	@Override
 	// <name> = <consoleExpr> ;
 	//(only read from console in assignment 5)
 	public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
 		Expr source = readStatement.getSource();
+		if(source.getType() != CONSOLE) //might need to move this logic for next assignment
+			 throw new UnsupportedOperationException("Not yet implemented");
 
-		sb.append(readStatement.getName());
-		sb.assign();
-		switch(source.getType()) {
-			case CONSOLE: source.visit(this, sb); break;
-			default: throw new UnsupportedOperationException("Not yet implemented");
-		}
-		sb.semi();
-		return ((CodeGenStringBuilder) arg).append(sb);
+		((CodeGenStringBuilder)arg)
+				.append(readStatement.getName())
+				.assign();
+		source.visit(this, arg);
+		((CodeGenStringBuilder)arg)
+				.semi();
+		return arg;
 		}
 
 	@Override
 	// <name> = <expr> ;
 	public Object visitAssignmentStatement(AssignmentStatement assignmentStatement, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		sb.append(assignmentStatement.getName());
-		sb.assign();
-		assignmentStatement.getExpr().visit(this, sb);
-		sb.semi();
-		return ((CodeGenStringBuilder) arg).append(sb);
+		Expr expr = assignmentStatement.getExpr();
+		((CodeGenStringBuilder)arg)
+				.append(assignmentStatement.getName())
+				.assign();
+		expr.visit(this, arg);
+		((CodeGenStringBuilder)arg)
+				.semi();
+		return arg;
 		}
 
 	@Override
-	/*
-	 * ConsoleIO.console.println(<source>) ;
-
-	println here is just the usual PrintStream method.   
-	Usually this is used with the PrintStream instance System.out.  
-	For this assignment, you should instead use the PrintStream object ConsoleIO.console.  
-	This will typically be assigned to System.out, but may be changed for grading or other purposes.  
-
-	 */
+	// ConsoleIO.console.println(<source>) ;
 	// (only write to console in assignment 5)
 	public Object visitWriteStatement(WriteStatement writeStatement, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
 		Expr dest = writeStatement.getDest();
 		Expr source = writeStatement.getSource();
-		switch(dest.getType()) {
-			case CONSOLE:
-				sb.append("ConsoleIO.console.println").lparen();
-				source.visit(this, sb);
-				sb.rparen().semi();
-				break;
-			default: throw new UnsupportedOperationException("Not yet implemented");
-		}
+		if(dest.getType() != CONSOLE) //might need to move for next assignment
+			throw new UnsupportedOperationException("Not yet implemented");
 
-		return ((CodeGenStringBuilder) arg).append(sb);
+		((CodeGenStringBuilder) arg)
+				.append("ConsoleIO.console.println")
+				.lparen();
+		source.visit(this, arg);
+		((CodeGenStringBuilder) arg)
+				.rparen()
+				.semi();
+
+		return arg;
 	}
 
-	//from pwp
 	@Override
 	//return <expr> ;
 	public Object visitReturnStatement(ReturnStatement returnStatement, Object arg) throws Exception {
-		CodeGenStringBuilder sb = new CodeGenStringBuilder();
 		Expr expr = returnStatement.getExpr();
-		sb.append("return ");
-		expr.visit(this, sb);
-		sb.semi().newline();
-		return ((CodeGenStringBuilder) arg).append(sb);
+		((CodeGenStringBuilder) arg)
+				.append("return ");
+		expr.visit(this, arg);
+		((CodeGenStringBuilder) arg)
+				.semi()
+				.newline();
+		return arg;
 	}
 
 }
