@@ -1,13 +1,9 @@
 package edu.ufl.cise.plc;
+
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import edu.ufl.cise.plc.IToken.Kind;
-import edu.ufl.cise.plc.TypeCheckVisitor.Pair;
 import edu.ufl.cise.plc.ast.*;
-import edu.ufl.cise.plc.runtime.*; //just added 
-import edu.ufl.cise.plc.runtime.javaCompilerClassLoader.*; //may need to remove 
 import edu.ufl.cise.plc.ast.Types.Type;
 
 import static edu.ufl.cise.plc.ast.Types.Type.*;
@@ -21,11 +17,11 @@ Add a method  with this signature and appropriate body to your CompilerComponent
  */
 
 public class CodeGenVisitor implements ASTVisitor {
-	
-	
-	public CodeGenVisitor(String packageName) {
-		// TODO check if the object is correct 
-		ASTVisitor v = CompilerComponentFactory.getCodeGenerator(packageName);
+
+	String pkgdec;
+
+	public CodeGenVisitor(String pkgdec) {
+		this.pkgdec = pkgdec;
 	}
 
 	//generate Java code  (not sure if we need this, from power point)
@@ -44,23 +40,8 @@ public class CodeGenVisitor implements ASTVisitor {
 		byte[] byteCode = DynamicCompiler.compile(fullName, code);
 		return byteCode;
 		}*/
-	
 
-	
-	//from pwp
-	@Override
-	//return <expr> ;
-	public Object visitReturnStatement(ReturnStatement returnStatement, Object arg) throws Exception {
-	  //TODO: Is this the correct object type for sb? alex: i updated it with the new class that handles making strings
-		// Get the entire code's CGSB (in arg) (the sb is bad naming because its not the same as the other sb's)
-		CodeGenStringBuilder sb = (CodeGenStringBuilder) arg;
-		Expr expr = returnStatement.getExpr();
-		// Append that right onto the entire code's CGSB (we don't really need to make a whole other CGSB to visit only one expr)
-		sb.append("return ");
-	  	expr.visit(this, sb);
-	  	sb.semi().newline();
-	  	return sb;
-	}
+
 
 	
 	@Override
@@ -72,42 +53,47 @@ public class CodeGenVisitor implements ASTVisitor {
 	   }
 	} */
 	public Object visitProgram(Program program, Object arg) throws Exception {
-		CodeGenStringBuilder sb = (CodeGenStringBuilder) arg;
+		arg = new CodeGenStringBuilder();
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		((CodeGenStringBuilder) arg).append("package ").append(pkgdec).semi().newline();
+		//TODO may need to fix imports
+		((CodeGenStringBuilder) arg).append("import ").append("edu.ufl.cise.plc.runtime.ConsoleIO").semi();
+		((CodeGenStringBuilder) arg).append("public class ").append(program.getName()).clparen().newline();
+		((CodeGenStringBuilder) arg).append("public static ").append(program.getReturnType()).append(" apply").lparen();
+		// <params>
+		List<NameDef> params = program.getParams();
+		for(int i = 0; i < params.size(); i++)
+		{
+			params.get(i).visit(this, arg);
+			if(i < params.size()-1)
+				((CodeGenStringBuilder) arg).comma();
+		}
+		((CodeGenStringBuilder) arg).rparen().clparen().newline();
 
-		program.getClass().getPackage();
-		// get	<imports>
-		Type type = program.getReturnType();
-		sb.append("public class ");
-		sb.append(program.getName());
-		sb.clparen();
-		sb.append("public static ");
-		sb.append(type.toString());
-		sb.append(" apply");
-		sb.lparen();
-		program.getParams();
-		sb.rparen();
-		sb.clparen();
-		program.getDecsAndStatements();
-		sb.crparen();
-		sb.crparen();
-		return ((CodeGenStringBuilder) arg).append(sb);
+		// <decsAndStatements>
+		List<ASTNode> decsandstatements = program.getDecsAndStatements();
+		for(int i = 0; i < decsandstatements.size(); i++) {
+			decsandstatements.get(i).visit(this, arg);
+			((CodeGenStringBuilder) arg).newline();
+		}
+
+		((CodeGenStringBuilder) arg).crparen().newline().crparen();
+		return ((CodeGenStringBuilder) arg).getStringBuilder().toString();
 		}
 
 	@Override
 	//<type> <name>
 	public Object visitNameDef(NameDef nameDef, Object arg) throws Exception {
-		CodeGenStringBuilder sb = (CodeGenStringBuilder) arg;
-		String type = nameDef.getType().name();
-		String name = nameDef.getName();
-		sb.append(type);
-		sb.append(name);
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		sb.append(nameDef.getType()).space();
+		sb.append(nameDef.getName());
 		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
 	//Not needed for assignment 5
 	public Object visitNameDefWithDim(NameDefWithDim nameDefWithDim, Object arg) throws Exception {
-		return null;
+		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
 	@Override
@@ -116,67 +102,99 @@ public class CodeGenVisitor implements ASTVisitor {
 	// Or if  this  has an assignment or read initializer
 	// <nameDef> = <expr>
 	public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
-		declaration.getNameDef();
-		declaration.getExpr();
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		declaration.getNameDef().visit(this, sb); //get name def in stringbuilder
+		IToken op = declaration.getOp();
+		//If there's a RHS
+		if(op != null) {
+			sb.assign();
+			//Check for cast
+			Type coerceTo = declaration.getExpr().getCoerceTo();
+			Type type = declaration.getExpr().getType();
+			if (coerceTo != null && type != coerceTo) {
+				sb.lparen().append(coerceTo).rparen();
+			}
+
+			if(op.getKind() == Kind.ASSIGN) {
+				declaration.getExpr().visit(this, sb);
+			}
+			if(op.getKind() == Kind.LARROW) {
+				if(declaration.getExpr().getType() != CONSOLE)
+					throw new UnsupportedOperationException("Not yet implemented");
+				declaration.getExpr().visit(this, sb);
+			}
+		}
+		sb.semi();
 		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
 	//Not needed for assignment 5
 	public Object visitUnaryExprPostfix(UnaryExprPostfix unaryExprPostfix, Object arg) throws Exception {
-		return null;
+		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
 	@Override
 	// ( <condition> ) ? <trueCase> : <falseCase>
 	public Object visitConditionalExpr(ConditionalExpr conditionalExpr, Object arg) throws Exception {
-		CodeGenStringBuilder sb = (CodeGenStringBuilder) arg;
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
 		sb.lparen();
-		sb.append(conditionalExpr.getCondition().getText());
+		sb.lparen();
+		conditionalExpr.getCondition().visit(this, sb);
 		sb.rparen();
 		sb.question();
-		sb.append(conditionalExpr.getTrueCase().getText());
+		conditionalExpr.getTrueCase().visit(this, sb);
 		sb.colon();
-		sb.append(conditionalExpr.getFalseCase().getText());
+		conditionalExpr.getFalseCase().visit(this, sb);
+		sb.rparen();
 		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
 	//Not needed for assignment 5
 	public Object visitDimension(Dimension dimension, Object arg) throws Exception {
-		return null;
+		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
 	@Override
 	//Not needed for assignment 5
 	public Object visitPixelSelector(PixelSelector pixelSelector, Object arg) throws Exception {
-		return null;
+		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
 	@Override
 	//( <left> <op> <right> )
 	public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
 		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		Type coerceTo = binaryExpr.getCoerceTo();
 		Type type = binaryExpr.getType();
-		Expr leftExpr = binaryExpr.getLeft();
-		Expr rightExpr = binaryExpr.getRight();
-		Type leftType = leftExpr.getCoerceTo() != null ? leftExpr.getCoerceTo() : leftExpr.getType();
-		Type rightType = rightExpr.getCoerceTo() != null ? rightExpr.getCoerceTo() : rightExpr.getType();
-		Kind op = binaryExpr.getOp().getKind();
+		Expr left = binaryExpr.getLeft();
+		Expr right = binaryExpr.getRight();
+		IToken op = binaryExpr.getOp();
 
-		//now build the binary expr's string
-		sb.lparen();
-		binaryExpr.getLeft().visit(this, sb);
-		sb.append(binaryExpr.getOp().getText());
-		binaryExpr.getRight().visit(this, sb);
-		sb.rparen();
-
-		//idk what this is but im leaving it here for now
-		if (binaryExpr.getCoerceTo() != type) {
-			genTypeConversion(type, binaryExpr.getCoerceTo(), sb);
+		if (coerceTo != null && type != coerceTo) {
+			sb.lparen().append(coerceTo).rparen();
 		}
 
-		// append the binary expr's CodeGenStringBuilder (sb) to the entire code's CodeGenStringBuilder (arg)
+		//Very extremely specific case of comparing two strings
+		if(left.getType() == STRING && right.getType() == STRING && (op.getKind() == Kind.NOT_EQUALS || op.getKind() == Kind.EQUALS))
+		{
+			sb.lparen();
+			if(op.getKind() == Kind.NOT_EQUALS)
+				sb.bang();
+			binaryExpr.getLeft().visit(this, sb);
+			sb.append(".equals").lparen();
+			binaryExpr.getRight().visit(this, sb);
+			sb.rparen().rparen();
+			return ((CodeGenStringBuilder) arg).append(sb);
+		}
+
+		sb.lparen();
+		left.visit(this, sb);
+		sb.append(op.getText());
+		right.visit(this, sb);
+		sb.rparen();
+
 		return ((CodeGenStringBuilder) arg).append(sb);
 
 		}
@@ -185,8 +203,8 @@ public class CodeGenVisitor implements ASTVisitor {
 	//Java literal corresponding to value (i.e. true or false)
 	public Object visitBooleanLitExpr(BooleanLitExpr booleanLitExpr, Object arg) throws Exception {
 		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		booleanLitExpr.equals(arg);
-		return null;
+		sb.append(booleanLitExpr.getValue());
+		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
@@ -209,13 +227,37 @@ public class CodeGenVisitor implements ASTVisitor {
 	Note that the “j = “ part would be generated by the parent AssignmentStatement.  See the provided ConsoleIO class.  
 	 */
 	public Object visitConsoleExpr(ConsoleExpr consoleExpr, Object arg) throws Exception {
-		  return null;
-		}
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		Type coerceTo = consoleExpr.getCoerceTo(); //consoles will always have a coerceTo value
+		sb.lparen();
+		String boxedtype = switch(coerceTo) {
+			case INT -> "Integer";
+			case STRING -> "String";
+			case BOOLEAN -> "Boolean";
+			case FLOAT -> "Float";
+			default -> throw new UnsupportedOperationException("Not yet (or supposed to be?) implemented");
+		};
+		sb.append(boxedtype);
+		sb.rparen();
+		sb.append("ConsoleIO.readValueFromConsole");
+		sb.lparen();
+		sb.dblquote();
+		sb.append(coerceTo.name());
+		sb.dblquote();
+		sb.comma();
+		sb.dblquote();
+		sb.append("Enter ");
+		sb.append(boxedtype);
+		sb.colon();
+		sb.dblquote();
+		sb.rparen();
+		return ((CodeGenStringBuilder) arg).append(sb);
+	}
 
 	@Override
 	//Not needed for assignment 5
 	public Object visitColorExpr(ColorExpr colorExpr, Object arg) throws Exception {
-		return null;
+		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
 	@Override
@@ -229,13 +271,23 @@ public class CodeGenVisitor implements ASTVisitor {
 	but fail test cases that check for equality)
 	 */
 	public Object visitFloatLitExpr(FloatLitExpr floatLitExpr, Object arg) throws Exception {
-		  return null;
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+
+		Type coerceTo = floatLitExpr.getCoerceTo();
+		if (coerceTo != null && coerceTo != FLOAT) {
+			sb.lparen().append(coerceTo).rparen();
+		}
+
+		sb.append(floatLitExpr.getValue());
+		sb.append("f");
+
+		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
 	//Not needed for assignment 5
 	public Object visitColorConstExpr(ColorConstExpr colorConstExpr, Object arg) throws Exception {
-		return null;
+		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
 	@Override
@@ -245,7 +297,16 @@ public class CodeGenVisitor implements ASTVisitor {
 	If coerceTo != null and coerceTo != INT, add cast to coerced type.
 	 */
 	public Object visitIntLitExpr(IntLitExpr intLitExpr, Object arg) throws Exception {
-		  return null;
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+
+		Type coerceTo = intLitExpr.getCoerceTo();
+		if (coerceTo != null && coerceTo != INT) {
+			sb.lparen().append(coerceTo).rparen();
+		}
+
+		sb.append(intLitExpr.getValue());
+
+		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
@@ -256,7 +317,16 @@ public class CodeGenVisitor implements ASTVisitor {
 
 	 */
 	public Object visitIdentExpr(IdentExpr identExpr, Object arg) throws Exception {
-		  return null;
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+
+		Type coerceTo = identExpr.getCoerceTo();
+		if (coerceTo != null && coerceTo != identExpr.getType()) {
+			sb.lparen().append(coerceTo).rparen();
+		}
+
+		sb.append(identExpr.getText());
+
+		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
@@ -265,8 +335,11 @@ public class CodeGenVisitor implements ASTVisitor {
 	//(we will not handle escape sequences in String literals in this assignment)
 	public Object visitStringLitExpr(StringLitExpr stringLitExpr, Object arg) throws Exception {
 		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		
-		return null;
+		sb.dblquote(); sb.dblquote(); sb.dblquote();
+		sb.newline();
+		sb.append(stringLitExpr.getValue());
+		sb.dblquote(); sb.dblquote(); sb.dblquote();
+		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
@@ -274,12 +347,14 @@ public class CodeGenVisitor implements ASTVisitor {
 	//(for assignment 5, only - and !)
 	public Object visitUnaryExpr(UnaryExpr unaryExpr, Object arg) throws Exception {
 		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		Kind op = unaryExpr.getOp().getKind();
-		Expr expr = unaryExpr.getExpr();
-		
+		IToken op = unaryExpr.getOp();
+
 		sb.lparen();
-		sb.append(unaryExpr.getOp().getText());
-		unaryExpr.getExpr().visit(this, sb);;
+		switch (op.getKind()) {
+			case MINUS, BANG: sb.append(unaryExpr.getOp().getText()); break;
+			default: throw new UnsupportedOperationException("Not yet implemented");
+		}
+		unaryExpr.getExpr().visit(this, sb);
 		sb.rparen();
 
 		return ((CodeGenStringBuilder) arg).append(sb);
@@ -290,11 +365,16 @@ public class CodeGenVisitor implements ASTVisitor {
 	//(only read from console in assignment 5)
 	public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
 		CodeGenStringBuilder sb = new CodeGenStringBuilder();
-		
+		Expr source = readStatement.getSource();
+
 		sb.append(readStatement.getName());
-		//get expr from console 
+		sb.assign();
+		switch(source.getType()) {
+			case CONSOLE: source.visit(this, sb); break;
+			default: throw new UnsupportedOperationException("Not yet implemented");
+		}
 		sb.semi();
-		return null;
+		return ((CodeGenStringBuilder) arg).append(sb);
 		}
 
 	@Override
@@ -302,7 +382,7 @@ public class CodeGenVisitor implements ASTVisitor {
 	public Object visitAssignmentStatement(AssignmentStatement assignmentStatement, Object arg) throws Exception {
 		CodeGenStringBuilder sb = new CodeGenStringBuilder();
 		sb.append(assignmentStatement.getName());
-		sb.equal();
+		sb.assign();
 		assignmentStatement.getExpr().visit(this, sb);
 		sb.semi();
 		return ((CodeGenStringBuilder) arg).append(sb);
@@ -320,9 +400,31 @@ public class CodeGenVisitor implements ASTVisitor {
 	 */
 	// (only write to console in assignment 5)
 	public Object visitWriteStatement(WriteStatement writeStatement, Object arg) throws Exception {
-		return null;
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		Expr dest = writeStatement.getDest();
+		Expr source = writeStatement.getSource();
+		switch(dest.getType()) {
+			case CONSOLE:
+				sb.append("ConsoleIO.console.println").lparen();
+				source.visit(this, sb);
+				sb.rparen().semi();
+				break;
+			default: throw new UnsupportedOperationException("Not yet implemented");
+		}
+
+		return ((CodeGenStringBuilder) arg).append(sb);
 	}
 
-	//return statement is above 
+	//from pwp
+	@Override
+	//return <expr> ;
+	public Object visitReturnStatement(ReturnStatement returnStatement, Object arg) throws Exception {
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		Expr expr = returnStatement.getExpr();
+		sb.append("return ");
+		expr.visit(this, sb);
+		sb.semi().newline();
+		return ((CodeGenStringBuilder) arg).append(sb);
+	}
 
 }

@@ -1,7 +1,13 @@
 package edu.ufl.cise.plc;
 
+import edu.ufl.cise.plc.ast.Types.Type;
+
 public class CodeGenStringBuilder {
-    StringBuilder delegate;
+    StringBuilder delegate = new StringBuilder();
+
+    public StringBuilder getStringBuilder() {
+        return delegate;
+    }
 
     //methods reimplemented—just call the delegates method
     public CodeGenStringBuilder append(String st) {
@@ -9,13 +15,26 @@ public class CodeGenStringBuilder {
         return this;
     }
 
-    //TODO: this might not work
     public CodeGenStringBuilder append(CodeGenStringBuilder st) {
+        delegate.append(st.getStringBuilder().toString());
+        return this;
+    }
+
+    public CodeGenStringBuilder append(Type type) {
+        String st = switch(type) {
+            case STRING -> "String";
+            default -> type.toString().toLowerCase();
+        };
         delegate.append(st);
         return this;
     }
 
-    //new methods, for readability :)
+    public CodeGenStringBuilder append(Object st) {
+        delegate.append(st);
+        return this;
+    }
+
+
     public CodeGenStringBuilder comma(){
         delegate.append(",");
         return this;
@@ -50,7 +69,7 @@ public class CodeGenStringBuilder {
         return this;
     }
 
-    public CodeGenStringBuilder equal(){
+    public CodeGenStringBuilder assign(){
         delegate.append("=");
         return this;
     }
@@ -64,6 +83,23 @@ public class CodeGenStringBuilder {
         delegate.append(":");
         return this;
     }
+
+    public CodeGenStringBuilder dblquote(){
+        delegate.append("\"");
+        return this;
+    }
+
+    public CodeGenStringBuilder space(){
+        delegate.append(" ");
+        return this;
+    }
+
+    public CodeGenStringBuilder bang(){
+        delegate.append("!");
+        return this;
+    }
+
+
 
     //add more as needed :)
 }

@@ -18,12 +18,6 @@ public class CompilerComponentFactory {
 		return new Parser(input);
 	}
 
-	public static TypeCheckVisitor getTypeChecker()
-	{
-		return new TypeCheckVisitor();
-	}
-	public static ASTVisitor getCodeGenerator(String packageName) 
-	{
-		return new CodeGenVisitor(packageName);
-	}
+	public static TypeCheckVisitor getTypeChecker() { return new TypeCheckVisitor(); }
+	public static ASTVisitor getCodeGenerator(String packageName) { return new CodeGenVisitor(packageName); }
 }
