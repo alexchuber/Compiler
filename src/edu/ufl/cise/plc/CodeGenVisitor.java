@@ -4,6 +4,7 @@ import java.util.List;
 
 import edu.ufl.cise.plc.IToken.Kind;
 import edu.ufl.cise.plc.ast.*;
+import edu.ufl.cise.plc.runtime.*;
 import edu.ufl.cise.plc.ast.Types.Type;
 
 import static edu.ufl.cise.plc.ast.Types.Type.*;
@@ -82,6 +83,12 @@ public class CodeGenVisitor implements ASTVisitor {
 	// Or if  this  has an assignment or read initializer
 	// <nameDef> = <expr>
 	//(only read initializers from console for assignment 5)
+	
+	//TODO: 
+	//If the PLCLang type is image, implement with a java.awt.image.BufferedImage.
+	// implement the table from the google doc 
+	// If the PLCLang type is color, implement with edu.ufl.cise.plc.runtime.ColorTuple.
+
 	public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
 		NameDef namedef = declaration.getNameDef();
 		Expr expr = declaration.getExpr();
@@ -90,9 +97,9 @@ public class CodeGenVisitor implements ASTVisitor {
 		namedef.visit(this, arg);
 
 		//If there's a RHS
-		if(expr != null) {
-			((CodeGenStringBuilder)arg)
-					.assign();
+		if(expr != null) 
+		{
+			((CodeGenStringBuilder)arg).assign();
 
 			//Check for cast
 			Type coerceTo = expr.getCoerceTo();
@@ -115,14 +122,14 @@ public class CodeGenVisitor implements ASTVisitor {
 			}
 		}
 
-		((CodeGenStringBuilder)arg)
-				.semi();
+		((CodeGenStringBuilder)arg).semi();
 
 		return arg;
 		}
 
 	@Override
-	//Not needed for assignment 5
+	//TODO: The expression will be something like a[e0,e1] where a is an image and [e0,e1] is represented by a PixelSelector.  
+	// Invoke the BufferedImage getRGB method with the expressions in the PixelSelector as parameters and unpack the returned int to create a ColorTuple
 	public Object visitUnaryExprPostfix(UnaryExprPostfix unaryExprPostfix, Object arg) throws Exception {
 		throw new UnsupportedOperationException("Not yet implemented");
 	}
@@ -151,19 +158,31 @@ public class CodeGenVisitor implements ASTVisitor {
 		}
 
 	@Override
-	//Not needed for assignment 5
+	//TODO: Usually, the width and height are used as parameters, for example to the BufferedImage constructor.  
+	// It is convenient for the visit method to generate code to evaluate width expression, comma, code to evaluate height expression.
 	public Object visitDimension(Dimension dimension, Object arg) throws Exception {
 		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
 	@Override
-	//Not needed for assignment 5
+	//TODO: Handled differently depending on whether they are on the left or right side of expression.   
+	// If on the left side, they are the index variables of a nested for loop.  
+	// If they are on the right side, they will be used as parameters and generate code to evaluate X, comma, code to evaluate Y.
 	public Object visitPixelSelector(PixelSelector pixelSelector, Object arg) throws Exception {
 		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
 	@Override
 	//( <left> <op> <right> )
+	
+	/*
+	TODO: 
+	BinaryExpressions on color objects are performed componentwise.  There are routines in edu.ufl.cise.plc.runtime.ImageOps that might be useful. 
+
+	BinaryExpressions on image objects are performed pixelwise.  There are routines in edu.ufl.cise.plc.runtime.ImageOps that might be useful. 
+
+	If a binary operation has one image and a color,  apply the operation between pixel and color to all operations in the image.  If a binary operation involves an image an int, create a color with all color components equal to the int value and then apply pixelwise to the image. In other words for image im0 and int k =,   im0 * k = im0 * <<k,k,k>>.  (There is a ColorTuple constructor for this case)
+	 */
 	public Object visitBinaryExpr(BinaryExpr binaryExpr, Object arg) throws Exception {
 		Type coerceTo = binaryExpr.getCoerceTo();
 		Type type = binaryExpr.getType();
@@ -171,6 +190,7 @@ public class CodeGenVisitor implements ASTVisitor {
 		Expr right = binaryExpr.getRight();
 		IToken op = binaryExpr.getOp();
 
+		//checking if we have to type cast 
 		if (coerceTo != null && type != coerceTo) {
 			((CodeGenStringBuilder)arg)
 					.lparen()
@@ -222,6 +242,7 @@ public class CodeGenVisitor implements ASTVisitor {
 
 	@Override
 	// ( <boxed(coerceTo)> ConsoleIO.readValueFromConsole(“coerceType”, <prompt>) )
+	// TODO : Color types are read from console similarly to the other types–the user inputs three values for the three color components.
 	public Object visitConsoleExpr(ConsoleExpr consoleExpr, Object arg) throws Exception {
 		Type coerceTo = consoleExpr.getCoerceTo(); //consoles will always have a coerceTo value
 		String boxedtype = switch(coerceTo) {
@@ -229,7 +250,8 @@ public class CodeGenVisitor implements ASTVisitor {
 			case STRING -> "String";
 			case BOOLEAN -> "Boolean";
 			case FLOAT -> "Float";
-			default -> throw new UnsupportedOperationException("Not yet (or supposed to be?) implemented");
+			case COLOR -> "Color";
+			default -> throw new UnsupportedOperationException("INVALID INPUT");
 		};
 
 		((CodeGenStringBuilder)arg)
@@ -252,7 +274,7 @@ public class CodeGenVisitor implements ASTVisitor {
 	}
 
 	@Override
-	//Not needed for assignment 5
+	//TODO: Generate code to evaluate each color component expression and create a ColorTuple object.
 	public Object visitColorExpr(ColorExpr colorExpr, Object arg) throws Exception {
 		throw new UnsupportedOperationException("Not yet implemented");
 	}
@@ -278,8 +300,10 @@ public class CodeGenVisitor implements ASTVisitor {
 		}
 
 	@Override
-	//Not needed for assignment 5
+	//TODO: Interpret the color constants as predefined instances of the java.awt.Color class.  
+	//Use getRGB routine to get a packed pixel, unpack it, and create a ColorTuple object. 
 	public Object visitColorConstExpr(ColorConstExpr colorConstExpr, Object arg) throws Exception {
+		ColorTuple obj; 
 		throw new UnsupportedOperationException("Not yet implemented");
 	}
 
@@ -344,14 +368,35 @@ public class CodeGenVisitor implements ASTVisitor {
 	public Object visitUnaryExpr(UnaryExpr unaryExpr, Object arg) throws Exception {
 		Expr expr = unaryExpr.getExpr();
 		IToken op = unaryExpr.getOp();
+		
 		if(op.getKind() != Kind.MINUS && op.getKind() != Kind.BANG) //might need to move this logic for next assignment
 			throw new UnsupportedOperationException("Not yet implemented");
 
+		//TODO: NEW // interpreted as packed pixel
+		if(op.getKind() == Kind.COLOR_OP && (expr.getType() == Type.INT || expr.getType() == Type.COLOR || expr.getType() == Type.IMAGE))
+		{
+			// interpreted as packed pixel
+			if(expr.getType() == Type.IMAGE) //if expr is type Imagee 
+			{
+				//use extractRed, etc.  routines in ImageOps
+				//extractBlue(expr)
+				//extractRed(expr)
+				//extractGreen(expr)
+			}
+			else // if expr is type int or Color 
+			{
+				//Use “routine” in ColorTuple class to get color value. 
+				 return new ColorTuple(expr);
+				// return color component
+			}
+		}
+		
+		
 		((CodeGenStringBuilder)arg)
 				.lparen()
-				.append(op.getText());
+				.append(op.getText()); //<op> 
 		expr.visit(this, arg);
-		((CodeGenStringBuilder)arg)
+		((CodeGenStringBuilder)arg) //<expr>
 				.rparen();
 
 		return arg;
@@ -360,11 +405,25 @@ public class CodeGenVisitor implements ASTVisitor {
 	@Override
 	// <name> = <consoleExpr> ;
 	//(only read from console in assignment 5)
+
+	//TODO : Use routines in FileURLIO to handle reading from a file or URL.  
+	// If the target type is image, then the value read will be a string interpreted as url of filename.
 	public Object visitReadStatement(ReadStatement readStatement, Object arg) throws Exception {
 		Expr source = readStatement.getSource();
+		
 		if(source.getType() != CONSOLE) //might need to move this logic for next assignment
-			 throw new UnsupportedOperationException("Not yet implemented");
+		{
+			// Use routines in FileURLIO to handle reading from a file or URL.  
+			// If the target type is image
+			if(source.getType() == IMAGE)
+			{
+				// then the value read will be a string interpreted as url of filename. 
+				return new readImage(source.getText());
+			}
+		}
 
+		
+		
 		((CodeGenStringBuilder)arg)
 				.append(readStatement.getName())
 				.assign();
@@ -376,8 +435,47 @@ public class CodeGenVisitor implements ASTVisitor {
 
 	@Override
 	// <name> = <expr> ;
+	
+	// TODO: 
+	//If <name>.type is image and <expr>.type is image, there are two cases, depending on whether the <name> was declared with a Dimension or not.  
+
+	//If declared with a Dimension, the image <name> always keeps the declared size.  The assignment is implemented by evaluating the right hand size and calling ImageOps.resize.
+
+	//If not declared with a size, the image <name>  takes the size of the right hand side image.  If <expr> is an identExpr, the rhs image is cloned using ImageOps.clone
+
+	//If <expr>.coerceTo is color, the color is assigned to every pixel in the image.
+
+	//If <expr>.coerceTo is int, the int is used as a single color component in a ColorTuple where all three color components have the value of the int.  (The value is truncated, so values outside of [0, 256) will be either white or black.)
+
 	public Object visitAssignmentStatement(AssignmentStatement assignmentStatement, Object arg) throws Exception {
 		Expr expr = assignmentStatement.getExpr();
+		
+		if(expr.getType() == IMAGE)
+		{
+			// if <name> was declared with a Dimension
+				//the image <name> always keeps the declared size.  The assignment is implemented by evaluating the right hand size and calling ImageOps.resize.
+			
+			//else 
+				//the image <name>  takes the size of the right hand side image.  
+			
+			// If <expr> is an identExpr
+			if(expr.getType() == IDENT) 
+			{
+				//the rhs image is cloned using ImageOps.clone
+			}
+			//If <expr>.coerceTo is color
+			if (expr.getCoerceTo() == COLOR)
+			{
+				//the color is assigned to every pixel in the image.
+			}
+			//If <expr>.coerceTo is int
+			if(expr.getCoerceTo() == INT)
+			{
+				//the int is used as a single color component in a ColorTuple where all three color components have the value of the int.  
+				// (The value is truncated, so values outside of [0, 256) will be either white or black.)
+			}
+		}
+		
 		((CodeGenStringBuilder)arg)
 				.append(assignmentStatement.getName())
 				.assign();
@@ -390,11 +488,23 @@ public class CodeGenVisitor implements ASTVisitor {
 	@Override
 	// ConsoleIO.console.println(<source>) ;
 	// (only write to console in assignment 5)
+	
+	//TODO: If type is image and target is console, use displayImageOnScreen method in ConsoleIO.
+	// If target is a file, use writeImage in FileURLIO for image types and writeValue for other types.
+
 	public Object visitWriteStatement(WriteStatement writeStatement, Object arg) throws Exception {
 		Expr dest = writeStatement.getDest();
 		Expr source = writeStatement.getSource();
-		if(dest.getType() != CONSOLE) //might need to move for next assignment
-			throw new UnsupportedOperationException("Not yet implemented");
+		
+		//If type is image 
+		if(dest.getType() == IMAGE) 
+		{
+		
+			// if target is console
+				//displayImageOnScreen() from ConsoleIO
+			// If target is a file
+				// use writeImage() in FileURLIO for image types and writeValue for other types.
+		}
 
 		((CodeGenStringBuilder) arg)
 				.append("ConsoleIO.console.println")
