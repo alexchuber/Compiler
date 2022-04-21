@@ -1,10 +1,12 @@
 package edu.ufl.cise.plc;
 
+import java.awt.image.BufferedImage;
 import java.util.List;
 
 import edu.ufl.cise.plc.IToken.Kind;
 import edu.ufl.cise.plc.ast.*;
 import edu.ufl.cise.plc.runtime.*;
+import edu.ufl.cise.plc.runtime.javaCompilerClassLoader.PLCLangExec;
 import edu.ufl.cise.plc.ast.Types.Type;
 
 import static edu.ufl.cise.plc.ast.Types.Type.*;
@@ -89,6 +91,30 @@ public class CodeGenVisitor implements ASTVisitor {
 	// implement the table from the google doc 
 	// If the PLCLang type is color, implement with edu.ufl.cise.plc.runtime.ColorTuple.
 
+	/*
+	 * @Override
+	//BufferedImage <name> = new BufferedImage(<visitDim>, BufferedImage.TYPE_INT_RGB)
+	public Object visitNameDefWithDim(NameDefWithDim nameDefWithDim, Object arg) throws Exception {
+		((CodeGenStringBuilder)arg)
+				.append("BufferedImage ")
+				.append(nameDefWithDim.getName())
+				.assign()
+				.append("new BufferedImage")
+				.lparen();
+
+		nameDefWithDim.getDim().visit(this, arg);
+
+		((CodeGenStringBuilder)arg)
+				.comma()
+				.append("BufferedImage.TYPE_INT_RGB")
+				.rparen();
+
+		return arg;
+	}
+	 */
+	
+	
+	
 	public Object visitVarDeclaration(VarDeclaration declaration, Object arg) throws Exception {
 		NameDef namedef = declaration.getNameDef();
 		Expr expr = declaration.getExpr();
@@ -110,6 +136,7 @@ public class CodeGenVisitor implements ASTVisitor {
 						.append(coerceTo)
 						.rparen();
 			}
+			
 
 			//Check read or assign... actually this needs refactoring but i dont have the will
 			if(op.getKind() == Kind.ASSIGN) {
@@ -117,9 +144,64 @@ public class CodeGenVisitor implements ASTVisitor {
 			}
 			if(op.getKind() == Kind.LARROW) {
 				if(expr.getType() != CONSOLE)
-					throw new UnsupportedOperationException("Not yet implemented");
-				expr.visit(this, arg);
+				{
+					//If the PLCLang type is image
+					if(namedef.getType() == IMAGE) // implement with a java.awt.image.BufferedImage.
+					{
+						//boolean VERBOSE;
+						//PLCLangExec("java.awt.image.BufferedImage", VERBOSE);
+						
+						if(namedef.isInitialized()) //to check if it has initalizer 
+						{
+							if(namedef.getDim() != null)//has dimension ->//visit the source to get the relevant dimensions 
+							{
+								int height = namedef.getDim().getHeight();
+								int width = namedef.getDim().getWidth();
+								String url = expr.getText(); 
+								
+								//Read image using readImage(String,int,int) method in FileURLIO
+								 BufferedImage b = FileURLIO.readImage(url,width,height);
+							     FileURLIO.closeFiles();
+							     return b; //return? 
+							}
+							else //does not have dimension 
+							{
+								//Read image using readImage(String) method in FileURLIO
+								String url = expr.getText(); 
+								BufferedImage b = FileURLIO.readImage(url);
+							    FileURLIO.closeFiles();
+							    return b; //?
+								
+							}
+						}
+						
+					}
+					else if(namedef.visit(this, arg).equals(COLOR)) //edu.ufl.cise.plc.runtime.ColorTuple.
+					{
+						//same code
+					}
+				}
+				
+				//add else statement? 
+				expr.visit(this, arg); 
 			}
+		}
+		else
+		{
+			if(namedef.getDim() != null)//has dimension ->//visit the source to get the relevant dimensions 
+				{
+					//Instantiate a new BufferedImage of the given dimension and type BufferedImage.TYPE_INT_RGB
+					namedef.visit(this, arg);
+					
+			
+				}
+				else //does not have dimension 
+				{
+					throw new UnsupportedOperationException("This case should have been marked as error during type checking");
+
+				}
+				
+		
 		}
 
 		((CodeGenStringBuilder)arg).semi();
@@ -169,7 +251,22 @@ public class CodeGenVisitor implements ASTVisitor {
 	// If on the left side, they are the index variables of a nested for loop.  
 	// If they are on the right side, they will be used as parameters and generate code to evaluate X, comma, code to evaluate Y.
 	public Object visitPixelSelector(PixelSelector pixelSelector, Object arg) throws Exception {
-		throw new UnsupportedOperationException("Not yet implemented");
+		// If on the left side, they are the index variables of a nested for loop.
+		
+		//passing pixelselector a bool along with sb to determine if it's lhs or rhs
+		//Otherwise you can just choose one or the other and do the other code in whatever calling pixelselector
+		//But that's a lot of copy pasting code so I wouldn't recommend it
+		CodeGenStringBuilder sb = new CodeGenStringBuilder();
+		
+	
+		//if LHS
+		for(int i = 0; i < pixelSelector.getX().; i++)
+		{
+			
+		}
+		// If they are on the right side, they will be used as parameters and generate code to evaluate X, comma, code to evaluate Y.
+		
+	  
 	}
 
 	@Override
