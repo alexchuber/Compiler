@@ -99,6 +99,11 @@ public class CodeGenStringBuilder {
         return this;
     }
 
+    public CodeGenStringBuilder dot(){
+        delegate.append(".");
+        return this;
+    }
+
 
 
     //add more as needed :)
