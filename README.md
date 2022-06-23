@@ -1,7 +1,7 @@
 # Compiler
 This is a custom compiler, created
 by Alexandra Cornide Huber and Abigail Martinez,
-for a programming language concepts class (COP4020).
+for a programming language concepts class.
 The language we created has a built-in image manipulation syntax, among other standard features of programming languages.
 We did this by implementing the compiler in Java.
 
